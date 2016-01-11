@@ -88,7 +88,7 @@ module Chat =
                     let sender = mailbox.Sender()
                     match message with
                     | CreateRoom name ->
-                        printfn "Joining room: %A" message
+                        printfn "Creating room: %A" message
                         createRoom mailbox name |> ignore
                         return! loop()
                     | JoinRoom (userName,(RoomName name),notify) ->

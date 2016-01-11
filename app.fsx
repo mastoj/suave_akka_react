@@ -23,17 +23,11 @@ open Suave.Successful
 open Suave.RequestErrors
 open System.IO
 open System.Threading
+open Chat
 
 let cancellationTokenSource = new CancellationTokenSource()
 let token = cancellationTokenSource.Token
 let config = { defaultConfig with cancellationToken = token }
-
-let api = 
-    choose 
-        [
-            path "/api/connect" >=> 
-                GET >=> OK "Hello"
-        ]
 
 let index = File.ReadAllText(__SOURCE_DIRECTORY__ + "/content/index.html")
 let file str = File.ReadAllText(__SOURCE_DIRECTORY__ + "/content/" + str)
@@ -55,6 +49,15 @@ let serveContent (contentTypeStr,str) =
     Writers.setMimeType mimetype
     >=> OK (file (relPath + str))
 
+module API = 
+    let app (chat:Chat.Chat) = 
+        choose 
+            [
+                POST >=> pathScan "/api/room/%s" (fun name -> chat.CreateRoom (Chat.RoomName name); OK ("Created " + name))
+                path "/api/connect" >=> 
+                    GET >=> OK "Hello"
+            ]
+
 let content = 
     choose
         [
@@ -65,7 +68,7 @@ let content =
 let app() = 
     choose 
         [
-            api
+            (API.app (Chat.createChat()))
             content
             NOT_FOUND "Uhoh"
         ]
@@ -73,4 +76,6 @@ let app() =
 let _, server = startWebServerAsync config (app())
 Async.Start(server, token)
 printfn "Started"
+//cancellationTokenSource.Cancel()
+
 System.Console.ReadLine()
