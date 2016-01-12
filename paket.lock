@@ -9,6 +9,8 @@ NUGET
       FSPowerPack.Core.Community (>= 3.0.0.0)
       FSPowerPack.Linq.Community (>= 3.0.0.0)
     FSharp.Core (4.0.0.1)
+    FSharp.Data (2.2.5)
+      Zlib.Portable (>= 1.10.0) - framework: portable-net40+sl50+wp80+win80
     FsPickler (1.7.1)
     FSPowerPack.Core.Community (3.0.0)
     FSPowerPack.Linq.Community (3.0.0)
@@ -16,3 +18,4 @@ NUGET
     Newtonsoft.Json (8.0.1)
     Suave (1.0.0)
       FSharp.Core (>= 3.1.2.5)
+    Zlib.Portable (1.11.0) - framework: portable-net40+sl50+wp80+win80
