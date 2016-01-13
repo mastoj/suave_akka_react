@@ -42,8 +42,8 @@ module Chat =
                     let! message = mailbox.Receive()
                     match message with
                     | Notify (msg,user) ->
-                        if user <> (UserName name)
-                        then notify (msg,user)
+//                        if user <> (UserName name)
+                        notify (msg,user)
                         return! loop notify
                     | Chat (msg,user) ->
                         room.ActorSelection("*") <! Notify (msg,user)
@@ -65,6 +65,7 @@ module Chat =
                     match message with
                     | JoinRoom (userName,roomName,notify) ->
                         let userActor = createUserActor mailbox userName notify
+                        notify (Message """{Msg:"From actor"}""", UserName "tomas")
                         let say message = userActor <! Chat(message,userName)
                         let sender = mailbox.Sender()
                         sender <! say

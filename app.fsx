@@ -83,6 +83,8 @@ module API =
     let utf8String (bytes:byte []) = System.Text.Encoding.UTF8.GetString(bytes)
     
     let joinRoom (chat:Chat.Chat) roomName userName (webSocket : WebSocket) cx = 
+        
+        printfn "trying to shake hands: %s %s" roomName userName
         let notificationFunc (Chat.Message msg, Chat.UserName name) = 
             let response = JsonTypes.Notification(msg, name).JsonValue.ToString()
             async {
@@ -91,12 +93,15 @@ module API =
             } |> Async.RunSynchronously
             
         let sendMsgFunc = chat.JoinRoom (Chat.RoomName roomName) (Chat.UserName userName) notificationFunc
-
+        
+        webSocket.send Opcode.Text (utf8Bytes """ "{'msg': "Hello from socket"}" """) true |> Async.RunSynchronously |> ignore 
+        printfn "before socket"
         socket {
             while true do
                 let! inChoice = webSocket.read()
                 match inChoice with
                 | (Opcode.Text, bytes, true) ->
+                    printfn "Got some message"
                     let msgStr = utf8String bytes 
                     sendMsgFunc (Chat.Message msgStr)
                 | _ -> ()
@@ -129,6 +134,6 @@ let app() =
 let _, server = startWebServerAsync config (app())
 Async.Start(server, token)
 printfn "Started"
-cancellationTokenSource.Cancel()
+//cancellationTokenSource.Cancel()
 
 System.Console.ReadLine()
