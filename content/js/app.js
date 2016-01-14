@@ -11,7 +11,7 @@
         root = root + "/";
         var websocket = new WebSocket(root + "api/room/test/join/tomas");
         websocket.onmessage = function(evt) {
-            alert(evt.data);
+            console.log(evt.data);
         }
         websocket.onopen = function() {
             websocket.send("This is from the web");            

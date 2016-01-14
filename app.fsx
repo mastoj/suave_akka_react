@@ -33,25 +33,32 @@ let cancellationTokenSource = new CancellationTokenSource()
 let token = cancellationTokenSource.Token
 let config = { defaultConfig with cancellationToken = token }
 
-let index = File.ReadAllText(__SOURCE_DIRECTORY__ + "/content/index.html")
+let index() = 
+    printfn "Reading index"
+    File.ReadAllText(__SOURCE_DIRECTORY__ + "/content/index.html")
 let file str = File.ReadAllText(__SOURCE_DIRECTORY__ + "/content/" + str)
 
 type ContentType = 
     | JS
     | CSS
+    | JSX
 
 let parseContentType = function
     | "js" -> JS
     | "css" -> CSS
+    | "jsx" -> JSX
 
-let serveContent (contentTypeStr,str) =
-    let contentType = contentTypeStr |> parseContentType
-    let (mimetype,relPath) = 
-        match contentType with
-        | JS -> "application/javascript","js/"
-        | CSS -> "text/css","css/"
-    Writers.setMimeType mimetype
-    >=> OK (file (relPath + str))
+let serveContent (filePath,fileEnding) =
+    request(fun _ -> 
+        let contentType = fileEnding |> parseContentType
+        let mimetype = 
+            match contentType with
+            | JS -> "application/javascript"
+            | CSS -> "text/css"
+            | JSX -> "text/babel"
+        Writers.setMimeType mimetype
+        >=> OK (file (filePath + "." + fileEnding))
+    )
 
 module API = 
     open FSharp.Data
@@ -116,11 +123,17 @@ module API =
                 pathScan "/api/room/%s/join/%s" (fun (roomName,userName) -> handShake (joinRoom chat roomName userName))
             ]
 
+let serveIndex : WebPart = 
+    request (fun r -> 
+        let s = index()
+        OK s        
+    )
+
 let content = 
     choose
         [
-            path "/" >=> Writers.setMimeType "text/html" >=> OK index
-            pathScan "/%s/%s" serveContent
+            path "/" >=> Writers.setMimeType "text/html" >=> serveIndex
+            pathScan "/%s.%s" serveContent
         ]
 
 let app() = 
