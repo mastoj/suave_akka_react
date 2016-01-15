@@ -49,7 +49,8 @@ let parseContentType = function
     | "jsx" -> JSX
 
 let serveContent (filePath,fileEnding) =
-    request(fun _ -> 
+    request(fun _ ->
+        printfn "File %A" (filePath,fileEnding) 
         let contentType = fileEnding |> parseContentType
         let mimetype = 
             match contentType with
@@ -139,6 +140,7 @@ let content =
 let app() = 
     choose 
         [
+            path "/favicon.ico" >=> NOT_FOUND "No favicon"
             (API.app (Chat.createChat()))
             content
             NOT_FOUND "Uhoh"
