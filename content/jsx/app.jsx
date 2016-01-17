@@ -1,3 +1,80 @@
+// Action types
+const LOGIN = "LOGIN";
+const LOGIN_RESULT = "LOGIN_RESULT";
+const CREATE_ROOM = "CREATE_ROOM";
+const ROOM_CREATED = "ROOM_CREATED";
+const JOIN_ROOM = "JOIN_ROOM";
+const USER_JOINED = "USER_JOINED";
+const SEND_MESSAGE = "SEND_MESSAGE";
+const MESSAGE_RECIEVED = "MESSAGE_RECIEVED";
+
+// Action creators
+const login = (login) => {
+    return {
+        type: JOIN_CHAT,
+        userName
+    };
+};
+
+const createRoom = (userName, roomName) = {
+    return {
+        type: CREATE_ROOM,
+        userName,
+        roomName
+    };
+};
+
+const joinRoom = (userName, roomName) = {
+    return {
+        type: JOIN_ROOM,
+        userName,
+        roomName
+    }
+}
+
+const sendMessage = (message) => {
+    return {
+        type: SEND_MESSAGE,
+        message
+    };
+};
+
+const messageReceived = (userName, message) => {
+    return {
+        type: MESSAGE_RECIEVED,
+        userName,
+        message
+    }
+}
+
+// Reducers
+const chat = (state = {
+    userName: "",
+    roomList: []
+},action) => {
+    switch(action.type) {
+        case ROOM_CREATED:
+            return Object.assign({}, state, {
+                roomList: [...state.roomList, action.roomName]
+            });
+        case LOGIN_RESULT: 
+            if(action.status == "OK") {
+                return Object.assign({}, state, {
+                    userName: action.userName
+                });
+            }
+    }
+};
+
+const room = (state  = [], action) => {
+    switch(action.type) {
+        case ROOM_CREATED:
+                        
+    }
+};
+
+
+
 var Header = React.createClass({
   render: function() {
     return (
