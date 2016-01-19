@@ -8,11 +8,33 @@ const USER_JOINED = "USER_JOINED";
 const SEND_MESSAGE = "SEND_MESSAGE";
 const MESSAGE_RECIEVED = "MESSAGE_RECIEVED";
 
+// Login status
+const FAILED = "FAILED";
+const IN_PROGRESS = "IN_PROGRESS";
+const OK = "OK";
+const NOT_STARTED = "NOT_STARTED";
+
 // Action creators
-const login = (userName) => {
+const loginRequested = (userName) => {
     return {
-        type: JOIN_CHAT,
+        type: LOGIN,
+        status: IN_PROGRESS,
+        userName        
+    }
+}
+
+const loginSuccess = (userName) => {
+    return {
+        type: LOGIN_RESULT,
+        status: OK,
         userName
+    }
+}
+
+const login = (userName) => {
+    return dispatch => {
+        dispatch(loginRequested(userName))
+        dispatch(loginSuccess(userName))
     };
 };
 
@@ -47,24 +69,35 @@ const messageReceived = (userName, message) => {
     }
 }
 
+const doStuff = (ds, userName) => {
+    if(ds) {
+        ds(userName);
+    }
+    console.log("Clicked: " + userName);
+    const something = (name) => {console.log("From action something " + userName + " " + name)};
+    return {
+        type: "DO_STUFF",
+        userName,
+        doStuff: something
+    }
+}
+
 // Reducers
-const FAILED = "FAILED";
-const OK = "OK";
-const NOT_STARTED = "NOT_STARTED";
 const header = (state = {
     login: NOT_STARTED,
-    userName: "tomas"
+    userName: undefined
 },action) => {
-    console.log("In header reducer");
+    console.log("In header action: ");
     console.log(action);
+    console.log("In header state: ");
     console.log(state);
     switch(action.type) {
         case LOGIN: 
             return Object.assign({}, state, {
-                login: FAILED
+                login: IN_PROGRESS
             });
         case LOGIN_RESULT: 
-            if(action.status == "OK") {
+            if(action.status == OK) {
                 return Object.assign({}, state, {
                     userName: action.userName,
                     login: OK
@@ -74,6 +107,21 @@ const header = (state = {
             return state;
     }
 };
+
+
+const connection = (state = {
+    doStuff: undefined
+}, action) => {
+    switch(action.type) {
+        case "DO_STUFF": 
+            return Object.assign({}, state, {
+                doStuff: action.doStuff
+            });
+        default:
+            return state;
+    }
+};
+
 
 const roomList = (state = {
     roomList: []
@@ -92,7 +140,8 @@ const {combineReducers} = Redux;
 
 const chatApp = combineReducers({
     header,
-    roomList
+    roomList,
+    connection
 });
 
 const {Component} = React;
@@ -103,30 +152,80 @@ const {render} = ReactDOM;
 // Components
 class HeaderView extends Component {
     render() {
-        const {userName} = this.props;
-        console.log(this.props);
+        const {loginClick, userName, doStuff, login} = this.props;
+        
+        console.log("Headerview props: ");
+        console.log( this.props);
+
+        this.handleClick = function(e) {
+            loginClick(this.refs.userName.value);
+        }
+
+        var loginBar;
+        if(userName) {
+            loginBar = <span>Welcome {userName}</span>
+        } else if(login == IN_PROGRESS) {
+            loginBar = <span>Please hold on</span>
+        }
+        else {
+            loginBar = <span>Please login <input type="text" ref="userName"/><button onClick={(e) => this.handleClick(e)} >Please login</button></span>
+        }
+        
         return (
             <div>
-                This is the header {this.props.userName}
+                {loginBar}
             </div>
         )
     }
 }
-
 
 const mapStateToHeaderProps = (state) => {
     console.log("In props");
     console.log(state);
     return {
         userName: state.header.userName,
-        login: state.header.login
+        login: state.header.login,
+        doStuff: state.connection.doStuff
+    }
+}
+
+const join = (dispatch, userName) => {
+    var createRoom = function(){
+    var request = new XMLHttpRequest();
+    request.open('POST', '/api/room/test', true);
+    request.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+    request.send();
+    };
+    var joinRoom = function(){
+        var root = "ws://" + window.location.hostname;
+        if (window.location.port != "") root = root + ":" + window.location.port;
+        root = root + "/";
+        var websocket = new WebSocket(root + "api/room/test/join/tomas");
+        websocket.onmessage = function(evt) {
+            console.log(evt.data);
+        }
+        websocket.onopen = function() {
+            websocket.send("This is from the web");            
+            dispatch(loginSuccess(userName));
+        };
+    };
+    createRoom();
+    joinRoom();
+}
+
+const mapDispatchToProps = (dispatch) => {
+    return {
+        loginClick: (userName) => {
+            dispatch(loginRequested(userName));
+            join(dispatch, userName);
+//            dispatch(login(userName));
+        }
     }
 }
 
 const Header = connect(
-  mapStateToHeaderProps
-//   ,
-//   mapDispatchToProps
+    mapStateToHeaderProps,
+    mapDispatchToProps
 )(HeaderView)
 
 class ChatApp extends Component {
