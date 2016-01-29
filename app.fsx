@@ -90,6 +90,10 @@ module API =
     let utf8Bytes (str:string) = System.Text.Encoding.UTF8.GetBytes(str)
     let utf8String (bytes:byte []) = System.Text.Encoding.UTF8.GetString(bytes)
     
+//    let connect (chat:Chat.Chat) roomName userName (webSocket : WebSocket) cx = 
+    
+
+
     let joinRoom (chat:Chat.Chat) roomName userName (webSocket : WebSocket) cx = 
         
         printfn "trying to shake hands: %s %s" roomName userName
@@ -118,6 +122,7 @@ module API =
     let app (chat:Chat.Chat) = 
         choose 
             [
+//                pathscan "/_socket/connect/%s" (fun (userName) -> handShake (connect chat userName))
                 POST >=> pathScan "/api/room/%s" (fun name -> chat.CreateRoom (Chat.RoomName name); OK ("Created " + name))
 //                POST >=> pathScan "/api/room/%s/join" connect
                 GET >=> pathScan "/api/room/%s/users" getUsers
