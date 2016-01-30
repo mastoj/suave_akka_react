@@ -111,17 +111,40 @@ module Chat =
         }
         loop Map.empty
     
-    let createChatServerActor() = 
+    type Connection = {
+        CreateRoom: RoomName -> unit
+        JoinRoom: RoomName -> unit
+        Say: (Message*RoomName) -> unit
+    }
+    
+    type ChatServer = 
+        {
+            ServerActor: IActorRef
+        }
+    let createConnection chatServer userName notificationHandler = 
+        let userActor = chatServer.ServerActor <? Connect(userName, notificationHandler) |> Async.RunSynchronously
+        let createRoom roomName = userActor <? UserMessage.CreateRoom roomName |> Async.RunSynchronously
+        let joinRoom roomName = userActor <? UserMessage.JoinRoom roomName |> Async.RunSynchronously
+        let say message = userActor <? UserMessage.Say message |> Async.RunSynchronously
+        {
+            CreateRoom = createRoom
+            JoinRoom = joinRoom
+            Say = say
+        }
+        
+    let createChatServer() = 
         let system = System.create "chat-system" (Configuration.load())
-        spawn system "server" chatServerActor
+        { 
+            ServerActor = spawn system "server" chatServerActor 
+        }
 
 open Chat
 let giveItASpin() = 
     // Create stuff
-    let chatServerActor = createChatServerActor()
-    let userActor:IActorRef = chatServerActor <? Connect((UserName "Tomas"), (printfn "User Tomas received: %A")) |> Async.RunSynchronously
+    let chatServer = createChatServer()
+    let userActor:IActorRef = chatServer.ServerActor <? Connect((UserName "Tomas"), (printfn "User Tomas received: %A")) |> Async.RunSynchronously
     printfn "User Tomas created"
-    let userActor2:IActorRef = chatServerActor <? Connect((UserName "Tomas2"), (printfn "User Tomas2 received: %A")) |> Async.RunSynchronously
+    let userActor2:IActorRef = chatServer.ServerActor <? Connect((UserName "Tomas2"), (printfn "User Tomas2 received: %A")) |> Async.RunSynchronously
     printfn "User Tomas2 created"
     let roomActor:IActorRef = userActor <? UserMessage.CreateRoom (RoomName "Room1") |> Async.RunSynchronously
     printfn "Room created"
