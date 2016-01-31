@@ -63,16 +63,25 @@ let serveContent (filePath,fileEnding) =
 
 module API = 
     open FSharp.Data
+    open Chat
     type JsonTypes = JsonProvider<"""
     {
         "Users": [{"UserName": "John doe"}],
         "Notification": {
             "Message": "This is the message",
-            "UserName": "John Doe"
-        } 
+            "UserName": "John Doe",
+            "RoomName": "This is a room2"
+        }
     }
     """>
 
+    type JsonSay = JsonProvider<"""
+        {
+            "_type": "Say",
+            "Message": "This is a message",
+            "RoomName": "InRoom"
+        }
+    """>
     
 
     // let connect roomName :WebPart=
@@ -94,18 +103,22 @@ module API =
     
 
 
-    let joinRoom (chat:Chat.Chat) roomName userName (webSocket : WebSocket) cx = 
-        
-        printfn "trying to shake hands: %s %s" roomName userName
-        let notificationFunc (Chat.Message msg, Chat.UserName name) = 
-            let response = JsonTypes.Notification(msg, name).JsonValue.ToString()
-            async {
-                let! x = webSocket.send Opcode.Text (utf8Bytes response) true
-                match x with | _ -> return ()
-            } |> Async.RunSynchronously
+    let connect (chat:Chat.ChatServer) userName (webSocket : WebSocket) cx = 
+        printfn "trying to shake hands: %A" userName
+        let notificationHandler = function
+            | UserSaid (UserName userName,Message message,RoomName roomName) -> 
+                let response = JsonTypes.Notification(message, userName, roomName).JsonValue.ToString() // JsonTypes..JsonValue.ToString()
+                async {
+                    printfn "Sending reponse: %A" response
+                    let! x = webSocket.send Opcode.Text (utf8Bytes response) true
+                    match x with | _ -> return ()
+                } |> Async.RunSynchronously
+        printfn "Notification function defined"
             
-        let sendMsgFunc = chat.JoinRoom (Chat.RoomName roomName) (Chat.UserName userName) notificationFunc
-        
+        let connection = Chat.createConnection chat userName notificationHandler
+        printfn "Created connection"
+        connection.CreateRoom (RoomName "Room1")
+        printfn "Created room"
         webSocket.send Opcode.Text (utf8Bytes """ "{'msg': "Hello from socket"}" """) true |> Async.RunSynchronously |> ignore 
         printfn "before socket"
         socket {
@@ -115,18 +128,20 @@ module API =
                 | (Opcode.Text, bytes, true) ->
                     printfn "Got some message"
                     let msgStr = utf8String bytes 
-                    sendMsgFunc (Chat.Message msgStr)
+                    let message = JsonSay.Parse(msgStr)
+                    printfn "Parsed %A" message
+                    connection.Say ((Chat.Message message.Message), RoomName message.RoomName)
                 | _ -> ()
         }
 
-    let app (chat:Chat.Chat) = 
+    let app (chat:Chat.ChatServer) = 
         choose 
             [
-//                pathscan "/_socket/connect/%s" (fun (userName) -> handShake (connect chat userName))
-                POST >=> pathScan "/api/room/%s" (fun name -> chat.CreateRoom (Chat.RoomName name); OK ("Created " + name))
+                pathScan "/_socket/connect/%s" (fun (userName) -> handShake (connect chat (UserName userName)))
+//                POST >=> pathScan "/api/room/%s" (fun name -> chat.CreateRoom (Chat.RoomName name); OK ("Created " + name))
 //                POST >=> pathScan "/api/room/%s/join" connect
-                GET >=> pathScan "/api/room/%s/users" getUsers
-                pathScan "/api/room/%s/join/%s" (fun (roomName,userName) -> handShake (joinRoom chat roomName userName))
+                // GET >=> pathScan "/api/room/%s/users" getUsers
+                // pathScan "/api/room/%s/join/%s" (fun (roomName,userName) -> handShake (joinRoom chat roomName userName))
             ]
 
 let serveIndex : WebPart = 
@@ -146,7 +161,7 @@ let app() =
     choose 
         [
             path "/favicon.ico" >=> NOT_FOUND "No favicon"
-            (API.app (Chat.createChat()))
+            (API.app (Chat.createChatServer()))
             content
             NOT_FOUND "Uhoh"
         ]

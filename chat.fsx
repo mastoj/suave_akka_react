@@ -123,8 +123,8 @@ module Chat =
         }
     let createConnection chatServer userName notificationHandler = 
         let userActor = chatServer.ServerActor <? Connect(userName, notificationHandler) |> Async.RunSynchronously
-        let createRoom roomName = userActor <? UserMessage.CreateRoom roomName |> Async.RunSynchronously
-        let joinRoom roomName = userActor <? UserMessage.JoinRoom roomName |> Async.RunSynchronously
+        let createRoom roomName = userActor <? UserMessage.CreateRoom roomName |> Async.RunSynchronously |> ignore
+        let joinRoom roomName = userActor <? UserMessage.JoinRoom roomName |> Async.RunSynchronously |> ignore
         let say message = userActor <? UserMessage.Say message |> Async.RunSynchronously
         {
             CreateRoom = createRoom
@@ -140,7 +140,6 @@ module Chat =
 
 open Chat
 let giveItASpin() = 
-    // Create stuff
     let chatServer = createChatServer()
     let userActor:IActorRef = chatServer.ServerActor <? Connect((UserName "Tomas"), (printfn "User Tomas received: %A")) |> Async.RunSynchronously
     printfn "User Tomas created"
@@ -152,7 +151,8 @@ let giveItASpin() =
     userActor2 <! UserMessage.JoinRoom(RoomName "Room1")
     System.Console.ReadLine() |> ignore
     userActor <! Say(Message "Second message", RoomName "Room1")
-    userActor2 <! Say(Message "Third message", RoomName "Room1")
+    let roomActor:IActorRef = userActor2 <? UserMessage.CreateRoom (RoomName "Room2") |> Async.RunSynchronously
+    userActor2 <! Say(Message "Third message", RoomName "Room2")
     System.Console.ReadLine() |> ignore
 
-giveItASpin()
+//giveItASpin()
