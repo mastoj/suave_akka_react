@@ -23,11 +23,12 @@ const loginRequested = (userName) => {
     }
 }
 
-const loginSuccess = (userName) => {
+const loginSuccess = (userName, connection) => {
     return {
         type: LOGIN_RESULT,
         status: OK,
-        userName
+        userName,
+        connection
     }
 }
 
@@ -100,7 +101,8 @@ const header = (state = {
             if(action.status == OK) {
                 return Object.assign({}, state, {
                     userName: action.userName,
-                    login: OK
+                    login: OK,
+                    connection: action.connection
                 });
             }
         default:
@@ -155,7 +157,9 @@ class HeaderView extends Component {
         const {loginClick, userName, doStuff, login} = this.props;
         
         console.log("Headerview props: ");
-        console.log( this.props);
+        console.log(this.props);
+        console.log("Headerview refs: ");
+        console.log(this.refs);
 
         this.handleClick = function(e) {
             loginClick(this.refs.userName.value);
@@ -175,7 +179,7 @@ class HeaderView extends Component {
             <div>
                 {loginBar}
             </div>
-        )
+        );
     }
 }
 
@@ -188,34 +192,40 @@ const mapStateToHeaderProps = (state) => {
         doStuff: state.connection.doStuff
     }
 }
-
-const join = (dispatch, userName) => {
-    var joinRoom = function() {
+const Connection = {
+    connect: (dispatch, userName) => {
+    
         var root = "ws://" + window.location.hostname;
         if (window.location.port != "") root = root + ":" + window.location.port;
         root = root + "/";
+    
         var websocket = new WebSocket(root + "_socket/connect/" + userName);
-        websocket.onmessage = function(evt) {
-            console.log(evt.data);
-        }
-        websocket.onopen = function() {
-            var messageText = "Hello from " + userName;
-            var roomName = "Room1";
-            var type = "Say";
-            var msg = {"_type":type, "Message":messageText, "RoomName": roomName};
+        
+        var say = function(text, roomName) {
+            var msg = {"_type":"Say", "Message":text, "RoomName": roomName};
             var messageString = JSON.stringify(msg);
             websocket.send(messageString);
-            dispatch(loginSuccess(userName));
         };
-    };
-    joinRoom();
+
+        var createRoom = function(roomName) {
+            websocket.send({"_type": "CreateRoom", "RoomName": roomName});
+        }
+        
+        websocket.onopen = function() {
+            var connection = {
+                say,
+                createRoom
+            };
+            dispatch(loginSuccess(userName, connection));
+        };
+    }
 }
 
 const mapDispatchToProps = (dispatch) => {
     return {
         loginClick: (userName) => {
             dispatch(loginRequested(userName));
-            join(dispatch, userName);
+            Connection.connect(dispatch, userName);
 //            dispatch(login(userName));
         }
     }
