@@ -75,7 +75,7 @@ module API =
     }
     """>
 
-    type JsonSay = JsonProvider<"""
+    type SayCommand = JsonProvider<"""
         {
             "_type": "Say",
             "Message": "This is a message",
@@ -83,7 +83,25 @@ module API =
         }
     """>
     
-
+    type CreateRoomCommand = JsonProvider<"""
+        {
+            "_type": "CreateRoom",
+            "RoomName": "This is the name"
+        }
+    """>
+    
+    let (|Say|_|) (str:string) =
+        let command = SayCommand.Parse(str)
+        match command.Type with
+        | "Say" -> Some (Say command)
+        | _ -> None
+    
+    let (|CreateRoom|_|) (str:string) =
+        let command = CreateRoomCommand.Parse(str)
+        match command.Type with
+        | "CreateRoom" -> Some (CreateRoom command)
+        | _ -> None
+    
     // let connect roomName :WebPart=
     //     let response = JsonValue.Array(["tomas"; "Stuart"] |> List.map (fun n -> JsonTypes.User(n).JsonValue) |> List.toArray) 
     //     Writers.setMimeType "application/json"
@@ -117,8 +135,6 @@ module API =
             
         let connection = Chat.createConnection chat userName notificationHandler
         printfn "Created connection"
-        connection.CreateRoom (RoomName "Room1")
-        printfn "Created room"
         webSocket.send Opcode.Text (utf8Bytes """ "{'msg': "Hello from socket"}" """) true |> Async.RunSynchronously |> ignore 
         printfn "before socket"
         socket {
@@ -126,11 +142,17 @@ module API =
                 let! inChoice = webSocket.read()
                 match inChoice with
                 | (Opcode.Text, bytes, true) ->
-                    printfn "Got some message"
                     let msgStr = utf8String bytes 
-                    let message = JsonSay.Parse(msgStr)
-                    printfn "Parsed %A" message
-                    connection.Say ((Chat.Message message.Message), RoomName message.RoomName)
+                    printfn "Got some message %A" msgStr
+                    
+                    match msgStr with
+                    | Say command -> 
+                        connection.Say ((Chat.Message command.Message), RoomName command.RoomName)
+                    | CreateRoom command -> 
+                        printfn "Creating room %A" command
+                        connection.CreateRoom (RoomName command.RoomName)
+                    
+                    printfn "Parsed %A" msgStr
                 | _ -> ()
         }
 

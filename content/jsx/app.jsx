@@ -208,14 +208,22 @@ const Connection = {
         };
 
         var createRoom = function(roomName) {
-            websocket.send({"_type": "CreateRoom", "RoomName": roomName});
-        }
+            var messageString = JSON.stringify({"_type": "CreateRoom", "RoomName": roomName});
+            websocket.send(messageString);
+        };
+        
+        websocket.onmessage = function (event) {
+            console.log("Received some data:");
+            console.log(event.data);
+        };
         
         websocket.onopen = function() {
             var connection = {
                 say,
                 createRoom
             };
+            connection.createRoom("Room1");
+            connection.say("Hello room1", "Room1");
             dispatch(loginSuccess(userName, connection));
         };
     }
