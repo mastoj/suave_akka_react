@@ -101,8 +101,7 @@ const header = (state = {
             if(action.status == OK) {
                 return Object.assign({}, state, {
                     userName: action.userName,
-                    login: OK,
-                    connection: action.connection
+                    login: OK
                 });
             }
         default:
@@ -110,22 +109,7 @@ const header = (state = {
     }
 };
 
-
-const connection = (state = {
-    doStuff: undefined
-}, action) => {
-    switch(action.type) {
-        case "DO_STUFF": 
-            return Object.assign({}, state, {
-                doStuff: action.doStuff
-            });
-        default:
-            return state;
-    }
-};
-
-
-const roomList = (state = {
+const roomView = (state = {
     roomList: []
 }, action) => {
     switch(action.type) {
@@ -138,11 +122,30 @@ const roomList = (state = {
     }    
 };
 
+const NOT_CONNECTED = "NOT_CONNECTED";
+const CONNECTED = "CONNECTED";
+const connection = (state = {
+    connectionStatus: NOT_CONNECTED,
+    connection: undefined
+}, action) => {
+    switch(action.type) {
+        case LOGIN_RESULT:
+            if(action.status == OK) {
+                return Object.assign({}, state, {
+                    connection: action.connection,
+                    connectionStatus: CONNECTED
+                }); 
+            }
+        default:
+            return state;
+    }
+}
+
 const {combineReducers} = Redux;
 
 const chatApp = combineReducers({
     header,
-    roomList,
+    roomView,
     connection
 });
 
@@ -188,8 +191,7 @@ const mapStateToHeaderProps = (state) => {
     console.log(state);
     return {
         userName: state.header.userName,
-        login: state.header.login,
-        doStuff: state.connection.doStuff
+        login: state.header.login
     }
 }
 const Connection = {
@@ -237,12 +239,36 @@ const mapDispatchToProps = (dispatch) => {
 //            dispatch(login(userName));
         }
     }
-}
+};
 
 const Header = connect(
     mapStateToHeaderProps,
     mapDispatchToProps
-)(HeaderView)
+)(HeaderView);
+
+class RoomView extends Component {
+    render() {
+        return (<div> Hello rooms</div>)
+    }
+}
+
+const mapStateToRoomProps = (state) => {
+    return {
+        createRoomClick: (roomName) => {
+            state.connection.connection.createRoom(roomName)
+        }
+    }
+}
+
+const mapDispatchToRoomProps = (dispatch) => {
+    return {
+    }
+}
+
+const RoomComponent = connect(
+    mapStateToRoomProps,
+    mapDispatchToRoomProps
+)(RoomView);
 
 class ChatApp extends Component {
     render() {
@@ -250,15 +276,11 @@ class ChatApp extends Component {
         return (
             <div>
                 <Header />
+                <RoomComponent />
             </div>
         )
     }
 }
-                    // userInfo={userInfo}
-                    // onLoginClick={dispatch(userName => dispatch(login(userName)))}
-                    // ></Header>
-                // <RoomList 
-                //     roomList={roomList} />
 
 const store = createStore(chatApp)
 
