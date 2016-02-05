@@ -4,3 +4,5 @@ nuget Suave
 nuget Akka
 nuget Akka.FSharp
 nuget FSharp.Data
+nuget FAKE
+nuget FSharp.Compiler.Service

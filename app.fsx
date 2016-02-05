@@ -29,10 +29,6 @@ open System.IO
 open System.Threading
 open Chat
 
-let cancellationTokenSource = new CancellationTokenSource()
-let token = cancellationTokenSource.Token
-let config = { defaultConfig with cancellationToken = token }
-
 let index() = 
     printfn "Reading index"
     File.ReadAllText(__SOURCE_DIRECTORY__ + "/content/index.html")
@@ -44,9 +40,10 @@ type ContentType =
     | JSX
 
 let parseContentType = function
-    | "js" -> JS
-    | "css" -> CSS
-    | "jsx" -> JSX
+    | "js" -> Some JS
+    | "css" -> Some CSS
+    | "jsx" -> Some JSX
+    | _ -> None
 
 let serveContent (filePath,fileEnding) =
     request(fun _ ->
@@ -54,9 +51,10 @@ let serveContent (filePath,fileEnding) =
         let contentType = fileEnding |> parseContentType
         let mimetype = 
             match contentType with
-            | JS -> "application/javascript"
-            | CSS -> "text/css"
-            | JSX -> "text/babel"
+            | Some JS -> "application/javascript"
+            | Some CSS -> "text/css"
+            | Some JSX -> "text/babel"
+            | None -> raise (exn "Not supported content type")
         Writers.setMimeType mimetype
         >=> OK (file (filePath + "." + fileEnding))
     )
@@ -151,6 +149,7 @@ module API =
                     | CreateRoom command -> 
                         printfn "Creating room %A" command
                         connection.CreateRoom (RoomName command.RoomName)
+                    | _ -> raise (exn "unsupported command")
                     
                     printfn "Parsed %A" msgStr
                 | _ -> ()
@@ -179,7 +178,7 @@ let content =
             pathScan "/%s.%s" serveContent
         ]
 
-let app() = 
+let app = 
     choose 
         [
             path "/favicon.ico" >=> NOT_FOUND "No favicon"
@@ -187,10 +186,3 @@ let app() =
             content
             NOT_FOUND "Uhoh"
         ]
-     
-let _, server = startWebServerAsync config (app())
-Async.Start(server, token)
-printfn "Started"
-//cancellationTokenSource.Cancel()
-
-System.Console.ReadLine()

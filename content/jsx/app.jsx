@@ -32,6 +32,45 @@ const loginSuccess = (userName, connection) => {
     }
 }
 
+function connectToServer(userName) {
+    return dispatch => {
+        console.log("connecting to server for user: " + userName)
+        console.log("handling connect request")
+        var root = "ws://" + window.location.hostname;
+        if (window.location.port != "") root = root + ":" + window.location.port;
+        root = root + "/";
+    
+        var websocket = new WebSocket(root + "_socket/connect/" + userName);
+        
+        var say = function(text, roomName) {
+            var msg = {"_type":"Say", "Message":text, "RoomName": roomName};
+            var messageString = JSON.stringify(msg);
+            websocket.send(messageString);
+        };
+
+        var createRoom = function(roomName) {
+            var messageString = JSON.stringify({"_type": "CreateRoom", "RoomName": roomName});
+            websocket.send(messageString);
+        };
+        
+        websocket.onmessage = function (event) {
+            console.log("Received some data:");
+            console.log(event.data);
+        };
+        
+        websocket.onopen = function() {
+            var connection = {
+                say,
+                createRoom
+            };
+            console.log("connected to server for user: " + userName)
+            connection.createRoom("Room1");
+            connection.say("Hello room1", "Room1");
+            dispatch(loginSuccess(userName, connection));
+        };
+    }
+}
+
 const login = (userName) => {
     return dispatch => {
         dispatch(loginRequested(userName))
@@ -141,7 +180,10 @@ const connection = (state = {
     }
 }
 
-const {combineReducers} = Redux;
+const {Component} = React;
+const {createStore, combineReducers, applyMiddleware} = Redux;
+const {connect,Provider} = ReactRedux;
+const {render} = ReactDOM;
 
 const chatApp = combineReducers({
     header,
@@ -149,10 +191,6 @@ const chatApp = combineReducers({
     connection
 });
 
-const {Component} = React;
-const {createStore} = Redux;
-const {connect,Provider} = ReactRedux;
-const {render} = ReactDOM;
 
 // Components
 class HeaderView extends Component {
@@ -165,6 +203,7 @@ class HeaderView extends Component {
         console.log(this.refs);
 
         this.handleClick = function(e) {
+            console.log("Handling click")
             loginClick(this.refs.userName.value);
         }
 
@@ -194,50 +233,15 @@ const mapStateToHeaderProps = (state) => {
         login: state.header.login
     }
 }
-const Connection = {
-    connect: (dispatch, userName) => {
-    
-        var root = "ws://" + window.location.hostname;
-        if (window.location.port != "") root = root + ":" + window.location.port;
-        root = root + "/";
-    
-        var websocket = new WebSocket(root + "_socket/connect/" + userName);
-        
-        var say = function(text, roomName) {
-            var msg = {"_type":"Say", "Message":text, "RoomName": roomName};
-            var messageString = JSON.stringify(msg);
-            websocket.send(messageString);
-        };
 
-        var createRoom = function(roomName) {
-            var messageString = JSON.stringify({"_type": "CreateRoom", "RoomName": roomName});
-            websocket.send(messageString);
-        };
-        
-        websocket.onmessage = function (event) {
-            console.log("Received some data:");
-            console.log(event.data);
-        };
-        
-        websocket.onopen = function() {
-            var connection = {
-                say,
-                createRoom
-            };
-            connection.createRoom("Room1");
-            connection.say("Hello room1", "Room1");
-            dispatch(loginSuccess(userName, connection));
-        };
-    }
-}
+//const Connection = {
+//    connect: (dispatch, userName) => {
+//    
+//}
 
 const mapDispatchToProps = (dispatch) => {
     return {
-        loginClick: (userName) => {
-            dispatch(loginRequested(userName));
-            Connection.connect(dispatch, userName);
-//            dispatch(login(userName));
-        }
+        loginClick: (userName) => dispatch(connectToServer(userName))
     }
 };
 
@@ -282,7 +286,19 @@ class ChatApp extends Component {
     }
 }
 
-const store = createStore(chatApp)
+function thunkMiddleware({ dispatch, getState }) {
+    console.log("Thunking")
+  return next => action =>
+    typeof action === 'function' ?
+      action(dispatch, getState) :
+      next(action);
+}
+
+function configureStore(initState) {
+    return applyMiddleware(thunkMiddleware)(createStore)(chatApp, initState);
+    //return createStore(chatApp, initState, );
+}
+const store = configureStore();
 
 const rootElement = document.getElementById('app')
 render(

@@ -8,6 +8,8 @@ NUGET
       FsPickler (>= 1.2.21)
       FSPowerPack.Core.Community (>= 3.0.0.0)
       FSPowerPack.Linq.Community (>= 3.0.0.0)
+    FAKE (4.19.0)
+    FSharp.Compiler.Service (2.0.0.4)
     FSharp.Core (4.0.0.1)
     FSharp.Data (2.2.5)
       Zlib.Portable (>= 1.10.0) - framework: portable-net40+sl50+wp80+win80
