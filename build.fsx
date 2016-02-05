@@ -33,9 +33,7 @@ let reloadScript () =
     fsiSession.EvalInteraction("open App")
     match fsiSession.EvalExpression("app") with
     | Some app -> 
-        traceImportant "In some"
         let webPart = app.ReflectionValue :?> WebPart
-        traceImportant "Created webpart"
         Some(webPart)
     | None -> failwith "Couldn't get 'app' value"
   with e -> reportFsiError e; None

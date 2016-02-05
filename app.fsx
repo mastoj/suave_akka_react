@@ -64,11 +64,24 @@ module API =
     open Chat
     type JsonTypes = JsonProvider<"""
     {
-        "Users": [{"UserName": "John doe"}],
-        "Notification": {
+        "ChatReceived": {
+            "_type": "ChatReceived",
             "Message": "This is the message",
             "UserName": "John Doe",
             "RoomName": "This is a room2"
+        },
+        "RoomCreated": {
+            "_type": "RoomCreated",
+            "RoomName": "This is a room2"
+        },
+        "RoomInfo": {
+            "_type": "RoomInfo",
+            "RoomName": "Name",
+            "Users": [{"UserName": "John doe"}]
+        },
+        "RoomList": {
+            "_type": "RoomList",
+            "Users": [{"RoomName": "Name"}]
         }
     }
     """>
@@ -100,11 +113,6 @@ module API =
         | "CreateRoom" -> Some (CreateRoom command)
         | _ -> None
     
-    // let connect roomName :WebPart=
-    //     let response = JsonValue.Array(["tomas"; "Stuart"] |> List.map (fun n -> JsonTypes.User(n).JsonValue) |> List.toArray) 
-    //     Writers.setMimeType "application/json"
-    //     >=> OK (response.ToString())
-
     let getUsers roomName = 
         let response = JsonValue.Array(["tomas"; "Stuart"] |> List.map (fun n -> JsonTypes.User(n).JsonValue) |> List.toArray) 
         Writers.setMimeType "application/json"
@@ -114,21 +122,24 @@ module API =
     open Suave.Sockets.SocketOp
     let utf8Bytes (str:string) = System.Text.Encoding.UTF8.GetBytes(str)
     let utf8String (bytes:byte []) = System.Text.Encoding.UTF8.GetString(bytes)
-    
-//    let connect (chat:Chat.Chat) roomName userName (webSocket : WebSocket) cx = 
-    
 
+    let sendTextOnSocket (socket: WebSocket) text =
+        async {
+            printfn "Sending reponse: %A" text
+            let! x = socket.send Opcode.Text (utf8Bytes text) true
+            match x with | _ -> return ()
+        } |> Async.StartImmediate
+         
 
     let connect (chat:Chat.ChatServer) userName (webSocket : WebSocket) cx = 
         printfn "trying to shake hands: %A" userName
         let notificationHandler = function
             | UserSaid (UserName userName,Message message,RoomName roomName) -> 
-                let response = JsonTypes.Notification(message, userName, roomName).JsonValue.ToString() // JsonTypes..JsonValue.ToString()
-                async {
-                    printfn "Sending reponse: %A" response
-                    let! x = webSocket.send Opcode.Text (utf8Bytes response) true
-                    match x with | _ -> return ()
-                } |> Async.RunSynchronously
+                JsonTypes.ChatReceived("ChatReceived", message, userName, roomName).JsonValue.ToString() // JsonTypes..JsonValue.ToString()
+                |> sendTextOnSocket webSocket
+            | RoomCreated (RoomName name) ->
+                JsonTypes.RoomCreated("RoomCreated", name).JsonValue.ToString()
+                |> sendTextOnSocket webSocket
         printfn "Notification function defined"
             
         let connection = Chat.createConnection chat userName notificationHandler
