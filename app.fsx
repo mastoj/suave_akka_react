@@ -140,12 +140,9 @@ module API =
             | RoomCreated (RoomName name) ->
                 JsonTypes.RoomCreated("RoomCreated", name).JsonValue.ToString()
                 |> sendTextOnSocket webSocket
-        printfn "Notification function defined"
             
         let connection = Chat.createConnection chat userName notificationHandler
         printfn "Created connection"
-        webSocket.send Opcode.Text (utf8Bytes """ "{'msg': "Hello from socket"}" """) true |> Async.RunSynchronously |> ignore 
-        printfn "before socket"
         socket {
             while true do
                 let! inChoice = webSocket.read()

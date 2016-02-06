@@ -56,6 +56,7 @@ function connectToServer(userName) {
         };
 
         var createRoom = function(roomName) {
+            console.log("Sending create room to server: " + roomName)
             var messageString = JSON.stringify({"_type": "CreateRoom", "RoomName": roomName});
             websocket.send(messageString);
         };
@@ -76,26 +77,25 @@ function connectToServer(userName) {
                 createRoom
             };
             console.log("connected to server for user: " + userName)
-            connection.createRoom("Room1");
-            connection.say("Hello room1", "Room1");
+            // connection.createRoom("Room1");
+            // connection.say("Hello room1", "Room1");
             dispatch(loginSuccess(userName, connection));
         };
     }
 }
 
-const login = (userName) => {
+const createRoom = (roomName, connection) => {
+    console.log("Creating room: " + roomName)
+    console.log(roomName)
+    console.log(connection)
     return dispatch => {
-        dispatch(loginRequested(userName))
-        dispatch(loginSuccess(userName))
-    };
-};
-
-const createRoom = (userName, roomName) => {
-    return {
-        type: CREATE_ROOM,
-        userName,
-        roomName
-    };
+        connection.createRoom(roomName)
+    }
+//    return {
+//        type: CREATE_ROOM,
+//        userName,
+//        roomName
+//    };
 };
 
 const joinRoom = (userName, roomName) => {
@@ -211,22 +211,16 @@ const chatApp = combineReducers({
 // Components
 class HeaderView extends Component {
     render() {
-        const {loginClick, userName, doStuff, login} = this.props;
-        
-        console.log("Headerview props: ");
-        console.log(this.props);
-        console.log("Headerview refs: ");
-        console.log(this.refs);
+        const {loginClick, userName, connectionStatus} = this.props;
 
         this.handleClick = function(e) {
-            console.log("Handling click")
             loginClick(this.refs.userName.value);
         }
 
         var loginBar;
         if(userName) {
             loginBar = <span>Welcome {userName}</span>
-        } else if(login == IN_PROGRESS) {
+        } else if(connectionStatus == IN_PROGRESS) {
             loginBar = <span>Please hold on</span>
         }
         else {
@@ -242,18 +236,11 @@ class HeaderView extends Component {
 }
 
 const mapStateToHeaderProps = (state) => {
-    console.log("In props");
-    console.log(state);
     return {
-        userName: state.header.userName,
-        login: state.header.login
+        userName: state.connection.userName,
+        connectionStatus: state.connection.connectionStatus
     }
 }
-
-//const Connection = {
-//    connect: (dispatch, userName) => {
-//    
-//}
 
 const mapDispatchToProps = (dispatch) => {
     return {
@@ -288,8 +275,6 @@ const RoomList = ({rooms, onRoomClick}) => (
 )
 
 const mapStateToRoomListProps = (state) => {
-    console.log("State in room list props: ")
-    console.log(state)
     return {
         createRoomClick: (roomName) => {
             state.connection.connection.createRoom(roomName)
@@ -306,25 +291,88 @@ const mapDispatchToRoomListProps = (dispatch) => {
     }
 }
 
-const RoomListView = connect(
+const RoomListContainer = connect(
     mapStateToRoomListProps,
     mapDispatchToRoomListProps
 )(RoomList);
 
-class ChatApp extends Component {
+const mapStateToCreateRoomProps = (state) => {
+    console.log("State is")
+    console.log(state)
+    return {
+        connection: state.connection.connection
+    }
+}
+
+const mapDispatchToCreateRoomProps = (dispatch, ownProps) => {
+    console.log("Own props")
+    console.log(ownProps)
+    console.log(dispatch)
+    return {
+        onClick: (roomName, connection) => dispatch(createRoom(roomName, connection))
+    }
+}
+
+const mergeCreateRoomProps = (stateProps, dispatchProps, ownProps) => {
+    var mergedProps = {
+        onClick: roomName => dispatchProps.onClick(roomName, stateProps.connection)
+    }
+    return Object.assign({}, ownProps, stateProps, dispatchProps, mergedProps)
+}
+
+class CreateRoom extends Component {
     render() {
-        const { dispatch, roomList, userInfo } = this.props;
+        const {onClick} = this.props;
+        this.handleClick = (e) => {
+            onClick(this.refs.roomName.value)
+        }
         return (
             <div>
-                <Header />
-                <RoomListView />
+                <h3>Create room</h3>
+                <input type="text" ref="roomName" ></input>
+                <button name="createRoom" onClick={(e) => this.handleClick(e)}>"Create room"</button>
             </div>
         )
     }
 }
 
-function thunkMiddleware({ dispatch, getState }) {
-    console.log("Thunking")
+const CreateRoomContainer = connect(
+    mapStateToCreateRoomProps,
+    mapDispatchToCreateRoomProps,
+    mergeCreateRoomProps
+)(CreateRoom)
+
+const ChatApp = ({connection}) => {
+    if(connection.connectionStatus == CONNECTED){
+        return (
+            <div>
+                <RoomListContainer />
+                <CreateRoomContainer />
+            </div>
+        )
+    }
+    else {
+        return (
+            <div>
+                <Header />
+            </div>
+        )
+    }
+}
+
+const mapStateToChatAppProps = (state) => {
+    console.log("The state is:")
+    console.log(state)
+    return {
+        connection: state.connection
+    }
+}
+
+const ChatAppContainer = connect(
+    mapStateToChatAppProps
+)(ChatApp)
+
+const thunkMiddleware = ({ dispatch, getState }) => {
   return next => action =>
     typeof action === 'function' ?
       action(dispatch, getState) :
@@ -333,14 +381,13 @@ function thunkMiddleware({ dispatch, getState }) {
 
 function configureStore(initState) {
     return applyMiddleware(thunkMiddleware)(createStore)(chatApp, initState);
-    //return createStore(chatApp, initState, );
 }
 const store = configureStore();
 
 const rootElement = document.getElementById('app')
 render(
   <Provider store={store}>
-    <ChatApp />
+    <ChatAppContainer />
   </Provider>,
   rootElement
 )
