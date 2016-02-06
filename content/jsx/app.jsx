@@ -32,6 +32,13 @@ const loginSuccess = (userName, connection) => {
     }
 }
 
+const roomCreated = (roomName) => {
+    return {
+        type: ROOM_CREATED,
+        roomName
+    }
+}
+
 function connectToServer(userName) {
     return dispatch => {
         console.log("connecting to server for user: " + userName)
@@ -56,6 +63,11 @@ function connectToServer(userName) {
         websocket.onmessage = function (event) {
             console.log("Received some data:");
             console.log(event.data);
+            var data = JSON.parse(event.data);
+            switch(data["_type"]) {
+                case "RoomCreated": 
+                    dispatch(roomCreated(data.RoomName))
+            }
         };
         
         websocket.onopen = function() {
@@ -151,6 +163,8 @@ const header = (state = {
 const roomView = (state = {
     roomList: []
 }, action) => {
+    console.log("RoomView state: ")
+    console.log(state)
     switch(action.type) {
         case ROOM_CREATED:
             return Object.assign({}, state, {
@@ -165,14 +179,16 @@ const NOT_CONNECTED = "NOT_CONNECTED";
 const CONNECTED = "CONNECTED";
 const connection = (state = {
     connectionStatus: NOT_CONNECTED,
-    connection: undefined
+    connection: undefined,
+    userName: undefined
 }, action) => {
     switch(action.type) {
         case LOGIN_RESULT:
             if(action.status == OK) {
                 return Object.assign({}, state, {
                     connection: action.connection,
-                    connectionStatus: CONNECTED
+                    connectionStatus: CONNECTED,
+                    userName: action.userName
                 }); 
             }
         default:
@@ -250,29 +266,50 @@ const Header = connect(
     mapDispatchToProps
 )(HeaderView);
 
-class RoomView extends Component {
-    render() {
-        return (<div> Hello rooms</div>)
-    }
-}
+const Room = ({roomName, onClick}) => (
+    <li onClick={onClick}>
+        {roomName}
+    </li>
+)
 
-const mapStateToRoomProps = (state) => {
+const RoomList = ({rooms, onRoomClick}) => (
+    <div>
+        <h2>Existing rooms</h2>
+        <ul className="room-list">
+            {rooms.map(room =>
+                <Room
+                    key={room}
+                    roomName={room}
+                    onClick={() => onRoomClick(room)}
+                />
+            )}
+        </ul>
+    </div>
+)
+
+const mapStateToRoomListProps = (state) => {
+    console.log("State in room list props: ")
+    console.log(state)
     return {
         createRoomClick: (roomName) => {
             state.connection.connection.createRoom(roomName)
-        }
+        },
+        onRoomClick: (roomName) => {
+            console.log("Clicked room: " + roomName);
+        },
+        rooms: state.roomView.roomList
     }
 }
 
-const mapDispatchToRoomProps = (dispatch) => {
+const mapDispatchToRoomListProps = (dispatch) => {
     return {
     }
 }
 
-const RoomComponent = connect(
-    mapStateToRoomProps,
-    mapDispatchToRoomProps
-)(RoomView);
+const RoomListView = connect(
+    mapStateToRoomListProps,
+    mapDispatchToRoomListProps
+)(RoomList);
 
 class ChatApp extends Component {
     render() {
@@ -280,7 +317,7 @@ class ChatApp extends Component {
         return (
             <div>
                 <Header />
-                <RoomComponent />
+                <RoomListView />
             </div>
         )
     }
@@ -323,74 +360,65 @@ render(
 //       </div>
 //     );
 //   }
-// });
-
-var RoomList = React.createClass({
-    render: function() {
-        return (
-            <div className="room-list">
-                List of rooms
-            </div>  
-        );
-    }
-});
-
-var Chat = React.createClass({
-    render: function() {
-        return(
-            <div className="chat-window">
-            This is a chat window
-            </div>
-        );
-    }    
-})
-
-var UserList = React.createClass({
-    render: function() {
-        return(
-            <div className="user-list">
-            This is the user list
-            </div>
-        );
-    }    
-})
-
-var ChatRoom = React.createClass({
-    render: function() {
-        return(
-            <div className="chat-room">
-                <Chat />
-                <UserList />
-            </div>
-        );
-    }
-})
-
-var ChatContainer = React.createClass({
-    render: function() {
-        return (
-            <div className="chat-container">
-                <aside>
-                    <RoomList />
-                </aside>
-                <Chat />
-            </div>
-        );
-    }
-})
-
-var App = React.createClass({
-    render: function() {
-        return (
-            <div className="main">
-                <Header/>
-                <ChatContainer />
-            </div>
-        );
-    }
-})
-
-// ReactDOM.render(
-//     <App />,
-//     document.getElementById('app')
-// );
+//// });
+//
+//var Chat = React.createClass({
+//    render: function() {
+//        return(
+//            <div className="chat-window">
+//            This is a chat window
+//            </div>
+//        );
+//    }    
+//})
+//
+//var UserList = React.createClass({
+//    render: function() {
+//        return(
+//            <div className="user-list">
+//            This is the user list
+//            </div>
+//        );
+//    }    
+//})
+//
+//var ChatRoom = React.createClass({
+//    render: function() {
+//        return(
+//            <div className="chat-room">
+//                <Chat />
+//                <UserList />
+//            </div>
+//        );
+//    }
+//})
+//
+//var ChatContainer = React.createClass({
+//    render: function() {
+//        return (
+//            <div className="chat-container">
+//                <aside>
+//                    <RoomListView />
+//                </aside>
+//                <Chat />
+//            </div>
+//        );
+//    }
+//})
+//
+//var App = React.createClass({
+//    render: function() {
+//        return (
+//            <div className="main">
+//                <Header/>
+//                <ChatContainer />
+//            </div>
+//        );
+//    }
+//})
+//
+//// ReactDOM.render(
+////     <App />,
+////     document.getElementById('app')
+//// );
+//
