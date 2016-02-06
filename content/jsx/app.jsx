@@ -13,6 +13,7 @@ const FAILED = "FAILED";
 const IN_PROGRESS = "IN_PROGRESS";
 const OK = "OK";
 const NOT_STARTED = "NOT_STARTED";
+const ROOM_LIST = "ROOM_LIST";
 
 // Action creators
 const loginRequested = (userName) => {
@@ -36,6 +37,13 @@ const roomCreated = (roomName) => {
     return {
         type: ROOM_CREATED,
         roomName
+    }
+}
+
+const roomList = rooms => {
+    return {
+        type: ROOM_LIST,
+        rooms
     }
 }
 
@@ -68,6 +76,10 @@ function connectToServer(userName) {
             switch(data["_type"]) {
                 case "RoomCreated": 
                     dispatch(roomCreated(data.RoomName))
+                    break
+                case "RoomList":
+                    dispatch(roomList(data.Rooms))
+                    break
             }
         };
         
@@ -91,11 +103,6 @@ const createRoom = (roomName, connection) => {
     return dispatch => {
         connection.createRoom(roomName)
     }
-//    return {
-//        type: CREATE_ROOM,
-//        userName,
-//        roomName
-//    };
 };
 
 const joinRoom = (userName, roomName) => {
@@ -118,19 +125,6 @@ const messageReceived = (userName, message) => {
         type: MESSAGE_RECIEVED,
         userName,
         message
-    }
-}
-
-const doStuff = (ds, userName) => {
-    if(ds) {
-        ds(userName);
-    }
-    console.log("Clicked: " + userName);
-    const something = (name) => {console.log("From action something " + userName + " " + name)};
-    return {
-        type: "DO_STUFF",
-        userName,
-        doStuff: something
     }
 }
 
@@ -165,11 +159,21 @@ const roomView = (state = {
 }, action) => {
     console.log("RoomView state: ")
     console.log(state)
+    console.log(action)
     switch(action.type) {
         case ROOM_CREATED:
-            return Object.assign({}, state, {
+            console.log("RoomView new state: ")        
+            var newState = Object.assign({}, state, {
                 roomList: [...state.roomList, action.roomName]
             });
+            console.log("RoomView new state: ")
+            console.log(newState)
+            return newState
+        case ROOM_LIST: 
+            var rooms = action.rooms || []
+            return Object.assign({}, state, {
+                roomList: rooms.map(r => r.RoomName)
+            })
         default:
             return state;
     }    

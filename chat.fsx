@@ -43,9 +43,14 @@ module Chat =
     type RoomMonitorMessage = 
         | CreateRoom of RoomName*UserName*Actor<UserMessage>
         | JoinRoom of RoomName*UserName*Actor<UserMessage>
+        | GetRoomList
     
     type UserMonitorMessage = 
         | Connect of (UserName*(Notification->unit))
+    
+    type ChatServerMessage = 
+        | Connect of (UserName*(Notification->unit))
+        | GetRoomList
         
     type RoomActorState = {RoomName: RoomName; ConnectedUsers: Map<UserName,Actor<UserMessage>>}
     let roomActor initState (mailbox:Actor<RoomMessage>) =
@@ -99,7 +104,7 @@ module Chat =
             let! message = mailbox.Receive()
             let sender = mailbox.Sender()
             match message with
-            | Connect (userName, notificationFun) ->
+            | UserMonitorMessage.Connect (userName, notificationFun) ->
                 let user = createUser mailbox roomMonitor userName notificationFun
                 sender <! user
                 return! loop {state with UserMap = state.UserMap |> Map.add userName user}
@@ -123,10 +128,14 @@ module Chat =
                 room <! Join(userName, userActor)
                 sender <! room
                 return! loop state
+            | RoomMonitorMessage.GetRoomList ->
+                printfn "Existing rooms: %A" state
+                sender <! (state |> Map.toList |> List.map fst)
+                return! loop state
         }
         loop Map.empty
     
-    let chatServerActor (mailbox:Actor<UserMonitorMessage>) = 
+    let chatServerActor (mailbox:Actor<ChatServerMessage>) = 
         let rec loop state = actor {
             let state' = 
                 match state with
@@ -138,9 +147,12 @@ module Chat =
             let! message = mailbox.Receive()
             let sender = mailbox.Sender()
             match state', message with
-            | Some (_, userMonitor), Connect(_,_) -> 
-                let userConnection = userMonitor <? message |> Async.RunSynchronously
+            | Some (_, userMonitor), Connect(x,y) -> 
+                let userConnection = userMonitor <? (UserMonitorMessage.Connect(x,y)) |> Async.RunSynchronously
                 sender <! userConnection
+            | Some (roomMonitor, _), GetRoomList -> 
+                let roomList = roomMonitor <? (RoomMonitorMessage.GetRoomList) |> Async.RunSynchronously
+                sender <! roomList
             | _ -> ()
             return! loop state'
         }
@@ -150,6 +162,7 @@ module Chat =
         CreateRoom: RoomName -> unit
         JoinRoom: RoomName -> unit
         Say: (Message*RoomName) -> unit
+        GetRoomList: unit -> RoomName list
     }
     
     type ChatServer = 
@@ -161,10 +174,12 @@ module Chat =
         let createRoom roomName = userActor <? UserMessage.CreateRoom roomName |> Async.RunSynchronously |> ignore
         let joinRoom roomName = userActor <? UserMessage.JoinRoom roomName |> Async.RunSynchronously |> ignore
         let say message = userActor <? UserMessage.Say message |> Async.RunSynchronously
+        let getRoomList() = chatServer.ServerActor <? GetRoomList |> Async.RunSynchronously
         {
             CreateRoom = createRoom
             JoinRoom = joinRoom
             Say = say
+            GetRoomList = getRoomList
         }
         
     let createChatServer() = 

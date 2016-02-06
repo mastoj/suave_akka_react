@@ -81,7 +81,7 @@ module API =
         },
         "RoomList": {
             "_type": "RoomList",
-            "Users": [{"RoomName": "Name"}]
+            "Rooms": [{"RoomName": "Name"}]
         }
     }
     """>
@@ -142,6 +142,10 @@ module API =
                 |> sendTextOnSocket webSocket
             
         let connection = Chat.createConnection chat userName notificationHandler
+        let roomNames = connection.GetRoomList() |> List.map (fun (RoomName n) -> JsonTypes.Room(n)) |> List.toArray
+        JsonTypes.RoomList("RoomList", roomNames).ToString()
+        |> sendTextOnSocket webSocket
+        
         printfn "Created connection"
         socket {
             while true do
