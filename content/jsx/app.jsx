@@ -47,6 +47,36 @@ const roomList = rooms => {
     }
 }
 
+const createRoom = (roomName, connection) => {
+    console.log("Creating room: " + roomName)
+    console.log(roomName)
+    console.log(connection)
+    return dispatch => {
+        connection.createRoom(roomName)
+    }
+};
+
+const joinRoom = (roomName, connection) => {
+    return dispatch => {
+        connection.joinRoom(roomName)
+    }
+}
+
+const sendMessage = (message) => {
+    return {
+        type: SEND_MESSAGE,
+        message
+    };
+};
+
+const messageReceived = (userName, message) => {
+    return {
+        type: MESSAGE_RECIEVED,
+        userName,
+        message
+    }
+}
+
 function connectToServer(userName) {
     return dispatch => {
         console.log("connecting to server for user: " + userName)
@@ -69,6 +99,12 @@ function connectToServer(userName) {
             websocket.send(messageString);
         };
         
+        const joinRoom = roomName => {
+            console.log("Joining room: " + roomName)
+            var messageString = JSON.stringify({"_type": "JoinRoom", "RoomName": roomName});
+            websocket.send(messageString);
+        }
+        
         websocket.onmessage = function (event) {
             console.log("Received some data:");
             console.log(event.data);
@@ -86,45 +122,14 @@ function connectToServer(userName) {
         websocket.onopen = function() {
             var connection = {
                 say,
-                createRoom
+                createRoom,
+                joinRoom
             };
             console.log("connected to server for user: " + userName)
             // connection.createRoom("Room1");
             // connection.say("Hello room1", "Room1");
             dispatch(loginSuccess(userName, connection));
         };
-    }
-}
-
-const createRoom = (roomName, connection) => {
-    console.log("Creating room: " + roomName)
-    console.log(roomName)
-    console.log(connection)
-    return dispatch => {
-        connection.createRoom(roomName)
-    }
-};
-
-const joinRoom = (userName, roomName) => {
-    return {
-        type: JOIN_ROOM,
-        userName,
-        roomName
-    }
-}
-
-const sendMessage = (message) => {
-    return {
-        type: SEND_MESSAGE,
-        message
-    };
-};
-
-const messageReceived = (userName, message) => {
-    return {
-        type: MESSAGE_RECIEVED,
-        userName,
-        message
     }
 }
 
@@ -280,38 +285,39 @@ const RoomList = ({rooms, onRoomClick}) => (
 
 const mapStateToRoomListProps = (state) => {
     return {
-        createRoomClick: (roomName) => {
-            state.connection.connection.createRoom(roomName)
-        },
-        onRoomClick: (roomName) => {
-            console.log("Clicked room: " + roomName);
-        },
+        connection: state.connection.connection,
         rooms: state.roomView.roomList
     }
 }
 
 const mapDispatchToRoomListProps = (dispatch) => {
     return {
+        onRoomClick: (roomName, connection) => {
+            dispatch(joinRoom(roomName, connection))
+        }
     }
+}
+
+const mergeToRoomListProps = (stateProps, dispatchProps, ownProps) => {
+    var mergedProps = {
+        onRoomClick: roomName => dispatchProps.onRoomClick(roomName, stateProps.connection)
+    }
+    return Object.assign({}, ownProps, stateProps, dispatchProps, mergedProps)
 }
 
 const RoomListContainer = connect(
     mapStateToRoomListProps,
-    mapDispatchToRoomListProps
+    mapDispatchToRoomListProps,
+    mergeToRoomListProps
 )(RoomList);
 
 const mapStateToCreateRoomProps = (state) => {
-    console.log("State is")
-    console.log(state)
     return {
         connection: state.connection.connection
     }
 }
 
 const mapDispatchToCreateRoomProps = (dispatch, ownProps) => {
-    console.log("Own props")
-    console.log(ownProps)
-    console.log(dispatch)
     return {
         onClick: (roomName, connection) => dispatch(createRoom(roomName, connection))
     }

@@ -82,6 +82,11 @@ module API =
         "RoomList": {
             "_type": "RoomList",
             "Rooms": [{"RoomName": "Name"}]
+        },
+        "UserJoinedRoom": {
+            "_type": "UserJoinedRoom",
+            "UserName": "userName",
+            "RoomName": "roomName"
         }
     }
     """>
@@ -101,6 +106,13 @@ module API =
         }
     """>
     
+    type JoinRoomCommand = JsonProvider<"""
+        {
+            "_type": "JoinRoom",
+            "RoomName": "This is the name"
+        }
+    """>
+    
     let (|Say|_|) (str:string) =
         let command = SayCommand.Parse(str)
         match command.Type with
@@ -111,6 +123,12 @@ module API =
         let command = CreateRoomCommand.Parse(str)
         match command.Type with
         | "CreateRoom" -> Some (CreateRoom command)
+        | _ -> None
+    
+    let (|JoinRoom|_|) (str:string) =
+        let command = CreateRoomCommand.Parse(str)
+        match command.Type with
+        | "JoinRoom" -> Some (JoinRoom command)
         | _ -> None
     
     let getUsers roomName = 
@@ -140,6 +158,9 @@ module API =
             | RoomCreated (RoomName name) ->
                 JsonTypes.RoomCreated("RoomCreated", name).JsonValue.ToString()
                 |> sendTextOnSocket webSocket
+            | UserJoinedRoom(RoomName roomName, UserName userName) ->
+                JsonTypes.UserJoinedRoom("UserJoinedRoom", userName, roomName).JsonValue.ToString()
+                |> sendTextOnSocket webSocket
             
         let connection = Chat.createConnection chat userName notificationHandler
         let roomNames = connection.GetRoomList() |> List.map (fun (RoomName n) -> JsonTypes.Room(n)) |> List.toArray
@@ -162,6 +183,10 @@ module API =
                         printfn "Creating room %A" command
                         connection.CreateRoom (RoomName command.RoomName)
                         printfn "Create room done"
+                    | JoinRoom command ->
+                        printfn "Joining room %A" command
+                        connection.JoinRoom (RoomName command.RoomName)
+                        printfn "Joined room"
                     | _ -> raise (exn "unsupported command")
                     
                     printfn "Parsed %A" msgStr
