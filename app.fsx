@@ -161,6 +161,7 @@ module API =
                     | CreateRoom command -> 
                         printfn "Creating room %A" command
                         connection.CreateRoom (RoomName command.RoomName)
+                        printfn "Create room done"
                     | _ -> raise (exn "unsupported command")
                     
                     printfn "Parsed %A" msgStr

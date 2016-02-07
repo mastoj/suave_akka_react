@@ -35,6 +35,7 @@ module Chat =
         | Notify of Notification
         | CreateRoom of RoomName
         | JoinRoom of RoomName
+        | Reconnect of (Notification -> unit)
 
     type RoomMessage = 
         | Join of UserName*Actor<UserMessage>
@@ -71,7 +72,7 @@ module Chat =
         let ra = roomActor {RoomName = roomName; ConnectedUsers = [(userName, userActor)] |> Map.ofList}
         spawn chatServer roomNameStr ra
         
-    type UserActorState = {UserName: UserName; Rooms: Map<RoomName, IActorRef>}
+    type UserActorState = {UserName: UserName; Rooms: Map<RoomName, IActorRef>; NotificationFuns: (Notification->unit) list}
     
     let userActor userName (roomMonitor:IActorRef) notificationFun (mailbox:Actor<UserMessage>) =
         let rec loop state = actor {
@@ -86,14 +87,22 @@ module Chat =
                     roomActor <! UserSays(msg,state.UserName)
                     return! loop state
                 | Notify notification -> 
-                    notificationFun notification
+                    state.NotificationFuns |> List.iter (fun f -> f notification)
                     return! loop state
+                | Reconnect notificationFun ->
+                    return! loop {state with NotificationFuns = notificationFun::state.NotificationFuns}
                 | UserMessage.CreateRoom roomName ->
-                    let room = roomMonitor <? RoomMonitorMessage.CreateRoom(roomName, state.UserName, mailbox) |> Async.RunSynchronously
-                    sender <! room
-                    return! loop {state with Rooms = state.Rooms |> Map.add roomName room}
+                    match roomMonitor <? RoomMonitorMessage.CreateRoom(roomName, state.UserName, mailbox) |> Async.RunSynchronously with
+                    | Some room -> 
+                        printfn "Got a room"
+                        sender <! Some room
+                        return! loop {state with Rooms = state.Rooms |> Map.add roomName room}
+                    | None ->
+                        printfn "Didn't get a room"
+                        sender <! None
+                        return! loop state
             }
-        loop {UserName = userName; Rooms = Map.empty}
+        loop {UserName = userName; Rooms = Map.empty; NotificationFuns = [notificationFun]}
         
     let createUser mailbox (roomMonitor:IActorRef) ((UserName userNameStr) as userName) notficationFun =
         spawn mailbox (userNameStr) (userActor userName roomMonitor notficationFun)
@@ -105,9 +114,15 @@ module Chat =
             let sender = mailbox.Sender()
             match message with
             | UserMonitorMessage.Connect (userName, notificationFun) ->
-                let user = createUser mailbox roomMonitor userName notificationFun
-                sender <! user
-                return! loop {state with UserMap = state.UserMap |> Map.add userName user}
+                match state.UserMap |> Map.tryFind userName with
+                | Some user ->
+                    user <! Reconnect notificationFun
+                    sender <! user
+                    return! loop state
+                | None ->
+                    let user = createUser mailbox roomMonitor userName notificationFun
+                    sender <! user
+                    return! loop {state with UserMap = state.UserMap |> Map.add userName user}
         }
         loop {UserMap = Map.empty}
     
@@ -117,12 +132,18 @@ module Chat =
             let sender = mailbox.Sender()
             match message with
             | RoomMonitorMessage.CreateRoom (roomName, userName, userActor) ->
-                let room = createRoom mailbox roomName userName userActor
-                sender <! room
-                printfn "Got room created"
-                let allUsers = select "akka://chat-system/user/server/user-monitor/*" mailbox.Context
-                allUsers <! (Notify (RoomCreated(roomName)))
-                return! loop (state |> Map.add roomName room)
+                match state |> Map.containsKey roomName with
+                | false ->
+                    printfn "Room not exists"
+                    let room = createRoom mailbox roomName userName userActor
+                    sender <! Some room
+                    let allUsers = select "akka://chat-system/user/server/user-monitor/*" mailbox.Context
+                    allUsers <! (Notify (RoomCreated(roomName)))
+                    return! loop (state |> Map.add roomName room)
+                | true -> 
+                    printfn "Room exists"
+                    sender <! None
+                    return! loop state
             | RoomMonitorMessage.JoinRoom(roomName, userName, userActor) ->
                 let room = state |> Map.find roomName
                 room <! Join(userName, userActor)
@@ -171,7 +192,9 @@ module Chat =
         }
     let createConnection chatServer userName notificationHandler = 
         let userActor = chatServer.ServerActor <? Connect(userName, notificationHandler) |> Async.RunSynchronously
-        let createRoom roomName = userActor <? UserMessage.CreateRoom roomName |> Async.RunSynchronously |> ignore
+        let createRoom roomName = 
+            let result = userActor <? UserMessage.CreateRoom roomName |> Async.StartImmediate
+            printfn "Create room result %A" result
         let joinRoom roomName = userActor <? UserMessage.JoinRoom roomName |> Async.RunSynchronously |> ignore
         let say message = userActor <? UserMessage.Say message |> Async.RunSynchronously
         let getRoomList() = chatServer.ServerActor <? GetRoomList |> Async.RunSynchronously
