@@ -88,20 +88,20 @@ function connectToServer(userName) {
         var websocket = new WebSocket(root + "_socket/connect/" + userName);
         
         var say = function(text, roomName) {
-            var msg = {"_type":"Say", "Message":text, "RoomName": roomName};
+            var msg = {"_type":"Say", "_data": {"Message":text, "RoomName": roomName}};
             var messageString = JSON.stringify(msg);
             websocket.send(messageString);
         };
 
         var createRoom = function(roomName) {
             console.log("Sending create room to server: " + roomName)
-            var messageString = JSON.stringify({"_type": "CreateRoom", "RoomName": roomName});
+            var messageString = JSON.stringify({"_type": "CreateRoom", "_data": {"RoomName": roomName}});
             websocket.send(messageString);
         };
         
         const joinRoom = roomName => {
             console.log("Joining room: " + roomName)
-            var messageString = JSON.stringify({"_type": "JoinRoom", "RoomName": roomName});
+            var messageString = JSON.stringify({"_type": "JoinRoom", "_data": {"RoomName": roomName}});
             websocket.send(messageString);
         }
         
@@ -111,10 +111,10 @@ function connectToServer(userName) {
             var data = JSON.parse(event.data);
             switch(data["_type"]) {
                 case "RoomCreated": 
-                    dispatch(roomCreated(data.RoomName))
+                    dispatch(roomCreated(data["_data"].RoomName))
                     break
                 case "RoomList":
-                    dispatch(roomList(data.Rooms))
+                    dispatch(roomList(data["_data"].Rooms))
                     break
             }
         };

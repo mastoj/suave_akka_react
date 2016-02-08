@@ -7,6 +7,7 @@
 #I "./packages/FSharp.Data/lib/net40"
 
 #r "Suave.dll"
+#r "Newtonsoft.Json.dll"
 #r "Akka.dll"
 #r "FsPickler.dll"
 #r "FSharp.PowerPack.Linq.dll"
@@ -28,6 +29,40 @@ open Suave.WebSocket
 open System.IO
 open System.Threading
 open Chat
+
+module SerializationHelpers =     
+    open Microsoft.FSharp.Reflection
+    open System
+    open Newtonsoft.Json
+    open Newtonsoft.Json.Linq
+
+    type SimpleDUSerializer() =
+        inherit JsonConverter()
+        override x.WriteJson(writer: JsonWriter, value: obj, serializer: JsonSerializer) = 
+            let union, fields =  FSharpValue.GetUnionFields(value, value.GetType())
+            writer.WriteStartObject()
+            writer.WritePropertyName("_type")
+            writer.WriteValue(union.Name)
+            writer.WritePropertyName("_data")
+            serializer.Serialize(writer, fields.[0])
+            writer.WriteEndObject()
+        override x.ReadJson(reader: JsonReader, objectType: Type, existingValue: obj, serializer: JsonSerializer) =
+            let jsonObject = JObject.Load(reader)
+            let properties = jsonObject.Properties() |> List.ofSeq
+            let duName = properties |> List.find (fun p -> p.Name = "_type") |> (fun p -> p.Value.Value<string>())
+            match FSharpType.GetUnionCases objectType |> Array.filter (fun case -> case.Name = duName) with
+            |[|case|] -> 
+                case.GetFields() |> Seq.iter (fun p -> printfn "Field: %A" p.DeclaringType)
+                let fieldType = case.GetFields().[0].PropertyType
+                let fieldValue = 
+                    properties 
+                    |> List.find (fun p -> p.Name = "_data") 
+                    |> (fun p -> 
+                        JsonConvert.DeserializeObject(p.Value.ToString(), fieldType))
+                FSharpValue.MakeUnion(case,[|fieldValue|])
+            |_ -> raise (exn "")
+        override x.CanConvert(objectType: Type) =
+            FSharpType.IsUnion(objectType)
 
 let index() = 
     printfn "Reading index"
@@ -61,89 +96,47 @@ let serveContent (filePath,fileEnding) =
 
 module API = 
     open FSharp.Data
+    open System
     open Chat
-    type JsonTypes = JsonProvider<"""
-    {
-        "ChatReceived": {
-            "_type": "ChatReceived",
-            "Message": "This is the message",
-            "UserName": "John Doe",
-            "RoomName": "This is a room2"
-        },
-        "RoomCreated": {
-            "_type": "RoomCreated",
-            "RoomName": "This is a room2"
-        },
-        "RoomInfo": {
-            "_type": "RoomInfo",
-            "RoomName": "Name",
-            "Users": [{"UserName": "John doe"}]
-        },
-        "RoomList": {
-            "_type": "RoomList",
-            "Rooms": [{"RoomName": "Name"}]
-        },
-        "UserJoinedRoom": {
-            "_type": "UserJoinedRoom",
-            "UserName": "userName",
-            "RoomName": "roomName"
-        }
-    }
-    """>
+    open SerializationHelpers
+    open Newtonsoft.Json
+    open Microsoft.FSharp.Reflection
+    
+    type ChatReceived = {Message: string; UserName: string; RoomName: string}
+    type RoomCreated = {RoomName: string}
+    type UserShort = {UserName: string}
+    type RoomInfo = {RoomName: string; Users: UserShort list}
+    type UserJoinedRoom = {UserName: string; RoomName: string}
+    type JoinedRoom = {RoomName: string}
+    type RoomShort = {RoomName: string}
+    type RoomList = {Rooms: RoomShort list}
+    
+    [<JsonConverter(typeof<SimpleDUSerializer>)>]
+    type Event = 
+        | ChatReceived of ChatReceived
+        | RoomCreated of RoomCreated
+        | RoomInfo of RoomInfo
+        | UserJoinedRoom of UserJoinedRoom
+        | JoinedRoom of JoinedRoom
+        | RoomList of RoomList
 
-    type SayCommand = JsonProvider<"""
-        {
-            "_type": "Say",
-            "Message": "This is a message",
-            "RoomName": "InRoom"
-        }
-    """>
+    type Say = {Message: string; RoomName: string}
+    type CreateRoom = {RoomName: string}
+    type JoinRoom = {RoomName: string}
+    [<JsonConverter(typeof<SimpleDUSerializer>)>]
+    type Command = 
+        | Say of Say
+        | CreateRoom of CreateRoom
+        | JoinRoom of JoinRoom
     
-    type CreateRoomCommand = JsonProvider<"""
-        {
-            "_type": "CreateRoom",
-            "RoomName": "This is the name"
-        }
-    """>
-    
-    type JoinRoomCommand = JsonProvider<"""
-        {
-            "_type": "JoinRoom",
-            "RoomName": "This is the name"
-        }
-    """>
-    
-    let (|Say|_|) (str:string) =
-        let command = SayCommand.Parse(str)
-        match command.Type with
-        | "Say" -> Some (Say command)
-        | _ -> None
-    
-    let (|CreateRoom|_|) (str:string) =
-        let command = CreateRoomCommand.Parse(str)
-        match command.Type with
-        | "CreateRoom" -> Some (CreateRoom command)
-        | _ -> None
-    
-    let (|JoinRoom|_|) (str:string) =
-        let command = CreateRoomCommand.Parse(str)
-        match command.Type with
-        | "JoinRoom" -> Some (JoinRoom command)
-        | _ -> None
-    
-    let getUsers roomName = 
-        let response = JsonValue.Array(["tomas"; "Stuart"] |> List.map (fun n -> JsonTypes.User(n).JsonValue) |> List.toArray) 
-        Writers.setMimeType "application/json"
-        >=> OK (response.ToString())
-
     open Suave.Sockets.Control
     open Suave.Sockets.SocketOp
     let utf8Bytes (str:string) = System.Text.Encoding.UTF8.GetBytes(str)
     let utf8String (bytes:byte []) = System.Text.Encoding.UTF8.GetString(bytes)
 
-    let sendTextOnSocket (socket: WebSocket) text =
+    let sendTextOnSocket (socket: WebSocket) value =
         async {
-            printfn "Sending reponse: %A" text
+            let text = JsonConvert.SerializeObject(value)
             let! x = socket.send Opcode.Text (utf8Bytes text) true
             match x with | _ -> return ()
         } |> Async.StartImmediate
@@ -153,18 +146,21 @@ module API =
         printfn "trying to shake hands: %A" userName
         let notificationHandler = function
             | UserSaid (UserName userName,Message message,RoomName roomName) -> 
-                JsonTypes.ChatReceived("ChatReceived", message, userName, roomName).JsonValue.ToString() // JsonTypes..JsonValue.ToString()
+                ChatReceived {Message = message; UserName = userName; RoomName = roomName}
                 |> sendTextOnSocket webSocket
-            | RoomCreated (RoomName name) ->
-                JsonTypes.RoomCreated("RoomCreated", name).JsonValue.ToString()
+            | Notification.RoomCreated (RoomName name) ->
+                RoomCreated {RoomName = name}
                 |> sendTextOnSocket webSocket
-            | UserJoinedRoom(RoomName roomName, UserName userName) ->
-                JsonTypes.UserJoinedRoom("UserJoinedRoom", userName, roomName).JsonValue.ToString()
+            | Notification.UserJoinedRoom(RoomName roomName, UserName userName) ->
+                UserJoinedRoom {UserName = userName; RoomName = roomName}
                 |> sendTextOnSocket webSocket
+            // | JoinedRoom(RoomName roomName) ->
+            //     JsonTypes..JoinedRoom("JoinedRoom", roomName).JsonValue.ToString()
+            //     |> sendTextOnSocket webSocket
             
         let connection = Chat.createConnection chat userName notificationHandler
-        let roomNames = connection.GetRoomList() |> List.map (fun (RoomName n) -> JsonTypes.Room(n)) |> List.toArray
-        JsonTypes.RoomList("RoomList", roomNames).ToString()
+        let roomNames = connection.GetRoomList() |> List.map (fun (RoomName n) -> {RoomName = n}:RoomShort)
+        RoomList {Rooms = roomNames}
         |> sendTextOnSocket webSocket
         
         printfn "Created connection"
@@ -174,9 +170,9 @@ module API =
                 match inChoice with
                 | (Opcode.Text, bytes, true) ->
                     let msgStr = utf8String bytes 
-                    printfn "Got some message %A" msgStr
+                    let command = JsonConvert.DeserializeObject<Command>(msgStr)
                     
-                    match msgStr with
+                    match command with
                     | Say command -> 
                         connection.Say ((Chat.Message command.Message), RoomName command.RoomName)
                     | CreateRoom command -> 

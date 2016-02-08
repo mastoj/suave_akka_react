@@ -29,6 +29,7 @@ module Chat =
     type Notification = 
         | UserSaid of UserName*Message*RoomName
         | UserJoinedRoom of RoomName*UserName
+        | JoinedRoom of RoomName
         | RoomCreated of RoomName
         
     type UserMessage = 
@@ -86,6 +87,7 @@ module Chat =
                 | UserMessage.JoinRoom roomName ->
                     printfn "joining room"
                     let room = roomMonitor <? RoomMonitorMessage.JoinRoom(roomName,state.UserName,mailbox) |> Async.RunSynchronously
+                    state.NotificationFuns |> List.iter (fun f -> f (JoinedRoom roomName))
                     return! loop {state with Rooms = state.Rooms |> Map.add roomName room}
                 | Say(msg,roomName) ->
                     let roomActor = state.Rooms |> Map.find roomName
