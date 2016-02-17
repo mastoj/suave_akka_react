@@ -20,7 +20,7 @@ const loginRequested = (userName) => {
     return {
         type: LOGIN,
         status: IN_PROGRESS,
-        userName        
+        userName
     }
 }
 
@@ -84,9 +84,9 @@ function connectToServer(userName) {
         var root = "ws://" + window.location.hostname;
         if (window.location.port != "") root = root + ":" + window.location.port;
         root = root + "/";
-    
+
         var websocket = new WebSocket(root + "_socket/connect/" + userName);
-        
+
         var say = function(text, roomName) {
             var msg = {"_type":"Say", "_data": {"Message":text, "RoomName": roomName}};
             var messageString = JSON.stringify(msg);
@@ -98,19 +98,19 @@ function connectToServer(userName) {
             var messageString = JSON.stringify({"_type": "CreateRoom", "_data": {"RoomName": roomName}});
             websocket.send(messageString);
         };
-        
+
         const joinRoom = roomName => {
             console.log("Joining room: " + roomName)
             var messageString = JSON.stringify({"_type": "JoinRoom", "_data": {"RoomName": roomName}});
             websocket.send(messageString);
         }
-        
+
         websocket.onmessage = function (event) {
             console.log("Received some data:");
             console.log(event.data);
             var data = JSON.parse(event.data);
             switch(data["_type"]) {
-                case "RoomCreated": 
+                case "RoomCreated":
                     dispatch(roomCreated(data["_data"].RoomName))
                     break
                 case "RoomList":
@@ -118,7 +118,7 @@ function connectToServer(userName) {
                     break
             }
         };
-        
+
         websocket.onopen = function() {
             var connection = {
                 say,
@@ -143,11 +143,11 @@ const header = (state = {
     console.log("In header state: ");
     console.log(state);
     switch(action.type) {
-        case LOGIN: 
+        case LOGIN:
             return Object.assign({}, state, {
                 login: IN_PROGRESS
             });
-        case LOGIN_RESULT: 
+        case LOGIN_RESULT:
             if(action.status == OK) {
                 return Object.assign({}, state, {
                     userName: action.userName,
@@ -167,21 +167,21 @@ const roomView = (state = {
     console.log(action)
     switch(action.type) {
         case ROOM_CREATED:
-            console.log("RoomView new state: ")        
+            console.log("RoomView new state: ")
             var newState = Object.assign({}, state, {
                 roomList: [...state.roomList, action.roomName]
             });
             console.log("RoomView new state: ")
             console.log(newState)
             return newState
-        case ROOM_LIST: 
+        case ROOM_LIST:
             var rooms = action.rooms || []
             return Object.assign({}, state, {
                 roomList: rooms.map(r => r.RoomName)
             })
         default:
             return state;
-    }    
+    }
 };
 
 const NOT_CONNECTED = "NOT_CONNECTED";
@@ -198,7 +198,7 @@ const connection = (state = {
                     connection: action.connection,
                     connectionStatus: CONNECTED,
                     userName: action.userName
-                }); 
+                });
             }
         default:
             return state;
@@ -233,9 +233,9 @@ class HeaderView extends Component {
             loginBar = <span>Please hold on</span>
         }
         else {
-            loginBar = <span>Please login <input type="text" ref="userName"/><button onClick={(e) => this.handleClick(e)} >Please login</button></span>
+            loginBar = <span>Please login now<input type="text" ref="userName"/><button onClick={(e) => this.handleClick(e)} >Please login</button></span>
         }
-        
+
         return (
             <div>
                 {loginBar}
@@ -405,7 +405,7 @@ render(
 // const room = (state  = [], action) => {
 //     switch(action.type) {
 //         case ROOM_CREATED:
-//                         
+//
 //     }
 // };
 
@@ -426,7 +426,7 @@ render(
 //            This is a chat window
 //            </div>
 //        );
-//    }    
+//    }
 //})
 //
 //var UserList = React.createClass({
@@ -436,7 +436,7 @@ render(
 //            This is the user list
 //            </div>
 //        );
-//    }    
+//    }
 //})
 //
 //var ChatRoom = React.createClass({

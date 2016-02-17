@@ -1,2 +1,5 @@
 .paket/
 packages/
+.fake/
+.pid
+run.log

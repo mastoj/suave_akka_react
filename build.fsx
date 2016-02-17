@@ -32,7 +32,7 @@ let reloadScript () =
     fsiSession.EvalInteraction(sprintf "#load @\"%s\"" appFsx)
     fsiSession.EvalInteraction("open App")
     match fsiSession.EvalExpression("app") with
-    | Some app -> 
+    | Some app ->
         let webPart = app.ReflectionValue :?> WebPart
         Some(webPart)
     | None -> failwith "Couldn't get 'app' value"
@@ -66,10 +66,70 @@ Target "run" (fun _ ->
   System.Diagnostics.Process.Start("http://localhost:8033") |> ignore
 
   // Watch for changes & reload when app.fsx changes
-  use watcher = !! (__SOURCE_DIRECTORY__ @@ "*.*") |> WatchChanges (fun _ -> reloadAppServer())
+  use watcher =
+    !! (__SOURCE_DIRECTORY__ @@ "*.*")
+    -- (__SOURCE_DIRECTORY__ @@ ".pid")
+    -- (__SOURCE_DIRECTORY__ @@ ".git")
+    -- (__SOURCE_DIRECTORY__ @@ "*.log")
+    |> WatchChanges (fun x -> printfn "Changes: %A" x; reloadAppServer())
   traceImportant "Waiting for app.fsx edits. Press any key to stop."
   //System.Console.ReadLine() |> ignore
   System.Threading.Thread.Sleep(System.Threading.Timeout.Infinite)
+)
+
+// For atom
+open System.Diagnostics
+let runLog = __SOURCE_DIRECTORY__ @@ "run.log"
+let pidFile = __SOURCE_DIRECTORY__ @@ ".pid"
+Target "spawn" (fun _ ->
+    if File.Exists(pidFile) then failwith "Build is running, do attach instead"
+
+    let fakeExe = __SOURCE_DIRECTORY__ @@ "packages/FAKE/tools/FAKE.exe"
+    let fakeArgs = "run --fsiargs build.fsx"
+    let fileName,arguments = if isMono then "mono",(sprintf "%s %s" fakeExe fakeArgs) else fakeExe, fakeArgs
+
+    let ps =
+        ProcessStartInfo
+            (
+                WorkingDirectory = __SOURCE_DIRECTORY__,
+                FileName = fileName, //__SOURCE_DIRECTORY__ @@ "build.sh",
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            )
+    use fs = new FileStream(runLog, FileMode.Create, FileAccess.ReadWrite, FileShare.Read)
+    use sw = new StreamWriter(fs)
+    let p = Process.Start(ps)
+    p.ErrorDataReceived.Add(fun data -> printfn "%s" data.Data; sw.WriteLine(data.Data); sw.Flush())
+    p.OutputDataReceived.Add(fun data -> printfn "%s" data.Data; sw.WriteLine(data.Data); sw.Flush())
+    p.EnableRaisingEvents <- true
+    p.BeginOutputReadLine()
+    p.BeginErrorReadLine()
+
+    File.WriteAllText(pidFile, string p.Id)
+    while File.Exists(pidFile) do
+        System.Threading.Thread.Sleep(500)
+    trace "Killing process now"
+    p.Kill()
+)
+
+Target "attach" (fun _ ->
+    if not (File.Exists(pidFile)) then
+        failwith "The build is not running!"
+    use fs = new FileStream(runLog, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+    use sr = new StreamReader(fs)
+    while File.Exists(pidFile) do
+        let msg = sr.ReadLine()
+        if not (String.IsNullOrEmpty(msg)) then
+            printfn "%s" msg
+        else System.Threading.Thread.Sleep(500)
+)
+
+Target "stop" (fun _ ->
+    if not (File.Exists(pidFile)) then
+        failwith "The build is not running!"
+    File.Delete(pidFile)
 )
 
 RunTargetOrDefault "run"
