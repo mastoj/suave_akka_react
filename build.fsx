@@ -1,6 +1,6 @@
 #r "packages/FSharp.Compiler.Service/lib/net45/FSharp.Compiler.Service.dll"
 #r "packages/Suave/lib/net40/Suave.dll"
-#r "packages/FAKE/tools/FakeLib.dll"
+#r "FakeLib.dll"
 
 open Fake
 open Suave
@@ -65,13 +65,18 @@ Target "run" (fun _ ->
   // Open web browser with the loaded file
   System.Diagnostics.Process.Start("http://localhost:8033") |> ignore
 
+
   // Watch for changes & reload when app.fsx changes
-  use watcher =
-    !! (__SOURCE_DIRECTORY__ @@ "*.*")
-    -- (__SOURCE_DIRECTORY__ @@ ".pid")
-    -- (__SOURCE_DIRECTORY__ @@ ".git")
-    -- (__SOURCE_DIRECTORY__ @@ "*.log")
+  use rootWatcher =
+      !! (__SOURCE_DIRECTORY__ @@ "*.*")
+      -- (__SOURCE_DIRECTORY__ @@ ".*")
+      -- (__SOURCE_DIRECTORY__ @@ "run.log")
+    |> WatchChangesWithOptions {IncludeSubdirectories = false} (fun x -> printfn "Changes: %A" x; reloadAppServer())
+
+  use folderWatcher =
+      !! (__SOURCE_DIRECTORY__ @@ "content/*")
     |> WatchChanges (fun x -> printfn "Changes: %A" x; reloadAppServer())
+
   traceImportant "Waiting for app.fsx edits. Press any key to stop."
   //System.Console.ReadLine() |> ignore
   System.Threading.Thread.Sleep(System.Threading.Timeout.Infinite)

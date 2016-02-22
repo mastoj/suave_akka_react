@@ -340,7 +340,7 @@ class CreateRoom extends Component {
             <div>
                 <h3>Create room</h3>
                 <input type="text" ref="roomName" ></input>
-                <button name="createRoom" onClick={(e) => this.handleClick(e)}>"Create room"</button>
+                <button name="createRoom" onClick={(e) => this.handleClick(e)}>Create room</button>
             </div>
         )
     }
@@ -352,12 +352,33 @@ const CreateRoomContainer = connect(
     mergeCreateRoomProps
 )(CreateRoom)
 
+const ChatLogContainer = () =>
+    <div>
+        <div className="message-entry">
+            <span className="user-name">Tomas</span>
+            <div className="message">Hello world!</div>
+        </div>
+    </div>
+
+const MessagePanelContainer = () =>
+    <div className="message-panel">
+        <input type="text"></input>
+    </div>
+
+
+const ChatWindowContainer = () =>
+    <div>
+        <ChatLogContainer />
+        <MessagePanelContainer />
+    </div>
+
 const ChatApp = ({connection}) => {
     if(connection.connectionStatus == CONNECTED){
         return (
             <div>
                 <RoomListContainer />
                 <CreateRoomContainer />
+                <ChatWindowContainer />
             </div>
         )
     }
