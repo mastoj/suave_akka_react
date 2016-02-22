@@ -372,28 +372,27 @@ const ChatWindowContainer = () =>
         <MessagePanelContainer />
     </div>
 
+const LoggedInContainer = () =>
+    <div>
+        <RoomListContainer />
+        <CreateRoomContainer />
+        <ChatWindowContainer />
+    </div>
+
 const ChatApp = ({connection}) => {
     if(connection.connectionStatus == CONNECTED){
         return (
-            <div>
-                <RoomListContainer />
-                <CreateRoomContainer />
-                <ChatWindowContainer />
-            </div>
+            <LoggedInContainer />
         )
     }
     else {
         return (
-            <div>
-                <Header />
-            </div>
+            <Header />
         )
     }
 }
 
 const mapStateToChatAppProps = (state) => {
-    console.log("The state is:")
-    console.log(state)
     return {
         connection: state.connection
     }
@@ -422,81 +421,3 @@ render(
   </Provider>,
   rootElement
 )
-
-// const room = (state  = [], action) => {
-//     switch(action.type) {
-//         case ROOM_CREATED:
-//
-//     }
-// };
-
-// var Header = React.createClass({
-//   render: function() {
-//     return (
-//       <div className="header">
-//         This is the header
-//       </div>
-//     );
-//   }
-//// });
-//
-//var Chat = React.createClass({
-//    render: function() {
-//        return(
-//            <div className="chat-window">
-//            This is a chat window
-//            </div>
-//        );
-//    }
-//})
-//
-//var UserList = React.createClass({
-//    render: function() {
-//        return(
-//            <div className="user-list">
-//            This is the user list
-//            </div>
-//        );
-//    }
-//})
-//
-//var ChatRoom = React.createClass({
-//    render: function() {
-//        return(
-//            <div className="chat-room">
-//                <Chat />
-//                <UserList />
-//            </div>
-//        );
-//    }
-//})
-//
-//var ChatContainer = React.createClass({
-//    render: function() {
-//        return (
-//            <div className="chat-container">
-//                <aside>
-//                    <RoomListView />
-//                </aside>
-//                <Chat />
-//            </div>
-//        );
-//    }
-//})
-//
-//var App = React.createClass({
-//    render: function() {
-//        return (
-//            <div className="main">
-//                <Header/>
-//                <ChatContainer />
-//            </div>
-//        );
-//    }
-//})
-//
-//// ReactDOM.render(
-////     <App />,
-////     document.getElementById('app')
-//// );
-//
