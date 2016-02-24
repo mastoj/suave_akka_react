@@ -1,19 +1,4 @@
-#I "./packages/Akka/lib/net45/"
-#I "./packages/Newtonsoft.Json/lib/net45/"
-#I "./packages/FsPickler/lib/net45/"
-#I "./packages/FSPowerPack.Linq.Community/lib/net40/"
-#I "./packages/Akka.FSharp/lib/net45/"
-#I "./packages/Suave/lib/net40/"
-#I "./packages/FSharp.Data/lib/net40"
-
-#r "Suave.dll"
-#r "Newtonsoft.Json.dll"
-#r "Akka.dll"
-#r "FsPickler.dll"
-#r "FSharp.PowerPack.Linq.dll"
-#r "Akka.FSharp.dll"
-#r "FSharp.Data"
-
+#load "references.fsx"
 #load "chat.fsx"
 
 open Akka
@@ -30,7 +15,7 @@ open System.IO
 open System.Threading
 open Chat
 
-module SerializationHelpers =     
+module SerializationHelpers =
     open Microsoft.FSharp.Reflection
     open System
     open Newtonsoft.Json
@@ -38,7 +23,7 @@ module SerializationHelpers =
 
     type SimpleDUSerializer() =
         inherit JsonConverter()
-        override x.WriteJson(writer: JsonWriter, value: obj, serializer: JsonSerializer) = 
+        override x.WriteJson(writer: JsonWriter, value: obj, serializer: JsonSerializer) =
             let union, fields =  FSharpValue.GetUnionFields(value, value.GetType())
             writer.WriteStartObject()
             writer.WritePropertyName("_type")
@@ -51,25 +36,25 @@ module SerializationHelpers =
             let properties = jsonObject.Properties() |> List.ofSeq
             let duName = properties |> List.find (fun p -> p.Name = "_type") |> (fun p -> p.Value.Value<string>())
             match FSharpType.GetUnionCases objectType |> Array.filter (fun case -> case.Name = duName) with
-            |[|case|] -> 
+            |[|case|] ->
                 case.GetFields() |> Seq.iter (fun p -> printfn "Field: %A" p.DeclaringType)
                 let fieldType = case.GetFields().[0].PropertyType
-                let fieldValue = 
-                    properties 
-                    |> List.find (fun p -> p.Name = "_data") 
-                    |> (fun p -> 
+                let fieldValue =
+                    properties
+                    |> List.find (fun p -> p.Name = "_data")
+                    |> (fun p ->
                         JsonConvert.DeserializeObject(p.Value.ToString(), fieldType))
                 FSharpValue.MakeUnion(case,[|fieldValue|])
             |_ -> raise (exn "")
         override x.CanConvert(objectType: Type) =
             FSharpType.IsUnion(objectType)
 
-let index() = 
+let index() =
     printfn "Reading index"
     File.ReadAllText(__SOURCE_DIRECTORY__ + "/content/index.html")
 let file str = File.ReadAllText(__SOURCE_DIRECTORY__ + "/content/" + str)
 
-type ContentType = 
+type ContentType =
     | JS
     | CSS
     | JSX
@@ -82,9 +67,9 @@ let parseContentType = function
 
 let serveContent (filePath,fileEnding) =
     request(fun _ ->
-        printfn "File %A" (filePath,fileEnding) 
+        printfn "File %A" (filePath,fileEnding)
         let contentType = fileEnding |> parseContentType
-        let mimetype = 
+        let mimetype =
             match contentType with
             | Some JS -> "application/javascript"
             | Some CSS -> "text/css"
@@ -94,14 +79,14 @@ let serveContent (filePath,fileEnding) =
         >=> OK (file (filePath + "." + fileEnding))
     )
 
-module API = 
+module API =
     open FSharp.Data
     open System
     open Chat
     open SerializationHelpers
     open Newtonsoft.Json
     open Microsoft.FSharp.Reflection
-    
+
     type ChatReceived = {Message: string; UserName: string; RoomName: string}
     type RoomCreated = {RoomName: string}
     type UserShort = {UserName: string}
@@ -110,9 +95,9 @@ module API =
     type JoinedRoom = {RoomName: string}
     type RoomShort = {RoomName: string}
     type RoomList = {Rooms: RoomShort list}
-    
+
     [<JsonConverter(typeof<SimpleDUSerializer>)>]
-    type Event = 
+    type Event =
         | ChatReceived of ChatReceived
         | RoomCreated of RoomCreated
         | RoomInfo of RoomInfo
@@ -124,11 +109,11 @@ module API =
     type CreateRoom = {RoomName: string}
     type JoinRoom = {RoomName: string}
     [<JsonConverter(typeof<SimpleDUSerializer>)>]
-    type Command = 
+    type Command =
         | Say of Say
         | CreateRoom of CreateRoom
         | JoinRoom of JoinRoom
-    
+
     open Suave.Sockets.Control
     open Suave.Sockets.SocketOp
     let utf8Bytes (str:string) = System.Text.Encoding.UTF8.GetBytes(str)
@@ -140,12 +125,12 @@ module API =
             let! x = socket.send Opcode.Text (utf8Bytes text) true
             match x with | _ -> return ()
         } |> Async.StartImmediate
-         
 
-    let connect (chat:Chat.ChatServer) userName (webSocket : WebSocket) cx = 
+
+    let connect (chat:Chat.ChatServer) userName (webSocket : WebSocket) cx =
         printfn "trying to shake hands: %A" userName
         let notificationHandler = function
-            | UserSaid (UserName userName,Message message,RoomName roomName) -> 
+            | UserSaid (UserName userName,Message message,RoomName roomName) ->
                 ChatReceived {Message = message; UserName = userName; RoomName = roomName}
                 |> sendTextOnSocket webSocket
             | Notification.RoomCreated (RoomName name) ->
@@ -154,28 +139,29 @@ module API =
             | Notification.UserJoinedRoom(RoomName roomName, UserName userName) ->
                 UserJoinedRoom {UserName = userName; RoomName = roomName}
                 |> sendTextOnSocket webSocket
+            | _ -> ()
             // | JoinedRoom(RoomName roomName) ->
             //     JsonTypes..JoinedRoom("JoinedRoom", roomName).JsonValue.ToString()
             //     |> sendTextOnSocket webSocket
-            
+
         let connection = Chat.createConnection chat userName notificationHandler
         let roomNames = connection.GetRoomList() |> List.map (fun (RoomName n) -> {RoomName = n}:RoomShort)
         RoomList {Rooms = roomNames}
         |> sendTextOnSocket webSocket
-        
+
         printfn "Created connection"
         socket {
             while true do
                 let! inChoice = webSocket.read()
                 match inChoice with
                 | (Opcode.Text, bytes, true) ->
-                    let msgStr = utf8String bytes 
+                    let msgStr = utf8String bytes
                     let command = JsonConvert.DeserializeObject<Command>(msgStr)
-                    
+
                     match command with
-                    | Say command -> 
+                    | Say command ->
                         connection.Say ((Chat.Message command.Message), RoomName command.RoomName)
-                    | CreateRoom command -> 
+                    | CreateRoom command ->
                         printfn "Creating room %A" command
                         connection.CreateRoom (RoomName command.RoomName)
                         printfn "Create room done"
@@ -183,14 +169,13 @@ module API =
                         printfn "Joining room %A" command
                         connection.JoinRoom (RoomName command.RoomName)
                         printfn "Joined room"
-                    | _ -> raise (exn "unsupported command")
-                    
+
                     printfn "Parsed %A" msgStr
                 | _ -> ()
         }
 
-    let app (chat:Chat.ChatServer) = 
-        choose 
+    let app (chat:Chat.ChatServer) =
+        choose
             [
                 pathScan "/_socket/connect/%s" (fun (userName) -> handShake (connect chat (UserName userName)))
 //                POST >=> pathScan "/api/room/%s" (fun name -> chat.CreateRoom (Chat.RoomName name); OK ("Created " + name))
@@ -199,21 +184,21 @@ module API =
                 // pathScan "/api/room/%s/join/%s" (fun (roomName,userName) -> handShake (joinRoom chat roomName userName))
             ]
 
-let serveIndex : WebPart = 
-    request (fun r -> 
+let serveIndex : WebPart =
+    request (fun r ->
         let s = index()
-        OK s        
+        OK s
     )
 
-let content = 
+let content =
     choose
         [
             path "/" >=> Writers.setMimeType "text/html" >=> serveIndex
             pathScan "/%s.%s" serveContent
         ]
 
-let app = 
-    choose 
+let app =
+    choose
         [
             path "/favicon.ico" >=> NOT_FOUND "No favicon"
             (API.app (Chat.createChatServer()))

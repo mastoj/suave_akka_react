@@ -1,15 +1,4 @@
-#I "./packages/Akka/lib/net45/"
-#I "./packages/Newtonsoft.Json/lib/net45/"
-#I "./packages/FsPickler/lib/net45/"
-#I "./packages/FSPowerPack.Linq.Community/lib/net40/"
-#I "./packages/Akka.FSharp/lib/net45/"
-#I "./packages/Suave/lib/net40/"
-
-#r "Suave.dll"
-#r "Akka.dll"
-#r "FsPickler.dll"
-#r "FSharp.PowerPack.Linq.dll"
-#r "Akka.FSharp.dll"
+#load "references.fsx"
 open Akka
 open Akka.Actor
 open Akka.FSharp
@@ -316,5 +305,3 @@ let giveItASpin() =
     userActor2.JoinRoom (RoomName "Room2")
     userActor2.Say (Message "Third message") (RoomName "Room2")
     System.Console.ReadLine() |> ignore
-
-giveItASpin()
