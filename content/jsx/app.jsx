@@ -4,6 +4,7 @@ const LOGIN_RESULT = "LOGIN_RESULT";
 const CREATE_ROOM = "CREATE_ROOM";
 const ROOM_CREATED = "ROOM_CREATED";
 const JOIN_ROOM = "JOIN_ROOM";
+const JOINED_ROOM = "JOINED_ROOM";
 const USER_JOINED = "USER_JOINED";
 const SEND_MESSAGE = "SEND_MESSAGE";
 const MESSAGE_RECIEVED = "MESSAGE_RECIEVED";
@@ -77,6 +78,21 @@ const messageReceived = (userName, message) => {
     }
 }
 
+const userJoined = (userName, roomName) => {
+    return {
+        type: USER_JOINED,
+        userName,
+        roomName
+    }
+}
+
+const joinedRoom = (roomName) => {
+    return {
+        type: JOINED_ROOM,
+        roomName
+    }
+}
+
 function connectToServer(userName) {
     return dispatch => {
         console.log("connecting to server for user: " + userName)
@@ -103,6 +119,7 @@ function connectToServer(userName) {
             console.log("Joining room: " + roomName)
             var messageString = JSON.stringify({"_type": "JoinRoom", "_data": {"RoomName": roomName}});
             websocket.send(messageString);
+            dispatch(joinedRoom(roomName))
         }
 
         websocket.onmessage = function (event) {
@@ -116,6 +133,8 @@ function connectToServer(userName) {
                 case "RoomList":
                     dispatch(roomList(data["_data"].Rooms))
                     break
+                case "UserJoinedRoom":
+                    dispatch(userJoined(data["_data"].UserName, data["_data"].RoomName))
             }
         };
 
@@ -184,6 +203,35 @@ const roomView = (state = {
     }
 };
 
+const roomMessages = (state = {
+    activeRoom: "",
+    roomList: {}
+}, action) => {
+    switch(action.type) {
+        case USER_JOINED:
+            let who = "Server"
+            let message = action.userName + " joined the room"
+            let roomMessages = state[action.roomName]
+            var newMessages = []
+            if(roomMessages) {
+                newMessages = [...roomMessages, {userName: who, message}]
+            }
+            else {
+                newMessages = [{userName: who, message}]
+            }
+            let roomList = Object.assign({}, state.roomList, {})
+            roomList[action.roomName] = newMessages
+            let newState = Object.assign({}, state, {roomList: roomList})
+            return newState
+        case JOINED_ROOM:
+            return Object.assign({}, state, {
+                activeRoom: action.roomName
+            })
+        default:
+            return state;
+    }
+}
+
 const NOT_CONNECTED = "NOT_CONNECTED";
 const CONNECTED = "CONNECTED";
 const connection = (state = {
@@ -213,7 +261,8 @@ const {render} = ReactDOM;
 const chatApp = combineReducers({
     header,
     roomView,
-    connection
+    connection,
+    roomMessages
 });
 
 
@@ -352,12 +401,21 @@ const CreateRoomContainer = connect(
     mergeCreateRoomProps
 )(CreateRoom)
 
-const ChatLogContainer = () =>
+const ChatLogEntry = ({message}) =>
+    <div className="message-entry">
+        <span className="user-name">{message.userName}</span>
+        <div className="message">{message.message}</div>
+    </div>
+
+
+const ChatLogContainer = ({messages}) =>
     <div>
-        <div className="message-entry">
-            <span className="user-name">Tomas</span>
-            <div className="message">Hello world!</div>
-        </div>
+        {messages.map(message =>
+            <ChatLogEntry
+                key={message.message}
+                message={message}
+            />
+        )}
     </div>
 
 const MessagePanelContainer = () =>
@@ -366,11 +424,27 @@ const MessagePanelContainer = () =>
     </div>
 
 
-const ChatWindowContainer = () =>
-    <div>
-        <ChatLogContainer />
-        <MessagePanelContainer />
-    </div>
+const ChatWindow = ({roomMessages}) => {
+    let activeMessages = roomMessages.roomList[roomMessages.activeRoom] || []
+    return (
+        <div>
+            <ChatLogContainer messages={activeMessages}/>
+            <MessagePanelContainer />
+        </div>
+    )
+}
+
+const mapStateToChatWindowContainerProps = (state) => {
+    console.log("State in window container map state")
+    console.log(state)
+    return {
+        roomMessages: state.roomMessages
+    }
+}
+
+const ChatWindowContainer = connect(
+    mapStateToChatWindowContainerProps
+)(ChatWindow)
 
 const LoggedInContainer = () =>
     <div>
