@@ -64,12 +64,11 @@ const joinRoom = (roomName, connection) => {
     }
 }
 
-const sendMessage = (message) => {
-    return {
-        type: SEND_MESSAGE,
-        message
-    };
-};
+const sendMessage = (message, roomName, connection) => {
+    return dispatch => {
+        connection.say(message, roomName)
+    }
+}
 
 const messageReceived = (userName, message) => {
     return {
@@ -105,8 +104,6 @@ const userSaid = (userName, roomName, message) => {
 
 function connectToServer(userName) {
     return dispatch => {
-        console.log("connecting to server for user: " + userName)
-        console.log("handling connect request")
         var root = "ws://" + window.location.hostname;
         if (window.location.port != "") root = root + ":" + window.location.port;
         root = root + "/";
@@ -120,13 +117,11 @@ function connectToServer(userName) {
         };
 
         var createRoom = function(roomName) {
-            console.log("Sending create room to server: " + roomName)
             var messageString = JSON.stringify({"_type": "CreateRoom", "_data": {"RoomName": roomName}});
             websocket.send(messageString);
         };
 
         const joinRoom = roomName => {
-            console.log("Joining room: " + roomName)
             var messageString = JSON.stringify({"_type": "JoinRoom", "_data": {"RoomName": roomName}});
             websocket.send(messageString);
             dispatch(joinedRoom(roomName))
@@ -157,9 +152,6 @@ function connectToServer(userName) {
                 createRoom,
                 joinRoom
             };
-            console.log("connected to server for user: " + userName)
-            // connection.createRoom("Room1");
-            // connection.say("Hello room1", "Room1");
             dispatch(loginSuccess(userName, connection));
         };
     }
@@ -221,7 +213,9 @@ const roomMessages = (state = {
     roomList: {}
 }, action) => {
     let addMessage = ({roomName, userName, message}) => {
-        let roomMessages = state[roomName]
+        let roomMessages = state.roomList[roomName]
+        console.log("Existing messages")
+        console.log(roomMessages)
         var newMessages = []
         if(roomMessages) {
             newMessages = [...roomMessages, {userName, message}]
@@ -436,18 +430,33 @@ const ChatLogContainer = ({messages}) =>
         )}
     </div>
 
-const MessagePanelContainer = () =>
-    <div className="message-panel">
-        <input type="text"></input>
-    </div>
+const MessagePanel = ({submitMessage}) => {
+    let handleKeyUp = (e) => {
+        if(e.keyCode == 13) {
+            submitMessage(e.target.value)
+            e.target.value = ""
+        }
+    }
+
+    return (
+        <div className="message-panel">
+            <input type="text" onKeyUp={handleKeyUp}></input>
+        </div>
+    )
+}
 
 
-const ChatWindow = ({roomMessages}) => {
+const ChatWindow = ({activeRoom, roomMessages, connection, sendMessage}) => {
     let activeMessages = roomMessages.roomList[roomMessages.activeRoom] || []
+    let submitMessage = (message) => sendMessage(message, activeRoom, connection)
+    let messagePanel = null;
+    if(activeRoom) {
+        messagePanel = <MessagePanel submitMessage={submitMessage} />
+    }
     return (
         <div>
             <ChatLogContainer messages={activeMessages}/>
-            <MessagePanelContainer />
+            {messagePanel}
         </div>
     )
 }
@@ -456,12 +465,21 @@ const mapStateToChatWindowContainerProps = (state) => {
     console.log("State in window container map state")
     console.log(state)
     return {
-        roomMessages: state.roomMessages
+        roomMessages: state.roomMessages,
+        activeRoom: state.roomMessages.activeRoom,
+        connection: state.connection.connection
     }
 }
 
+const mapDispatchToChatWindowContainerProps = (dispatch) => {
+    return {
+        sendMessage: (message, roomName, connection) => dispatch(sendMessage(message, roomName, connection))
+    }
+};
+
 const ChatWindowContainer = connect(
-    mapStateToChatWindowContainerProps
+    mapStateToChatWindowContainerProps,
+    mapDispatchToChatWindowContainerProps
 )(ChatWindow)
 
 const LoggedInContainer = () =>

@@ -66,7 +66,6 @@ module Chat =
         let notifyUsers state notification userName =
             let userActors =
                 state.ConnectedUsers
-                |> Map.filter (fun k b -> k <> userName)
                 |> Map.toList
                 |> List.map snd
             printfn "Users in room: %A" userActors
@@ -82,8 +81,11 @@ module Chat =
                 return! loop state
             | Join(userConnection) ->
                 printfn "In room joining %A" message
-                notifyUsers state (UserJoinedRoom (state.RoomName, userConnection.UserName)) userConnection.UserName
-                printfn "Hello"
+                match state.ConnectedUsers |> Map.containsKey userConnection.UserName with
+                | true -> ()
+                | false ->
+                    notifyUsers state (UserJoinedRoom (state.RoomName, userConnection.UserName)) userConnection.UserName
+                    printfn "Hello"
                 return! loop {state with ConnectedUsers = state.ConnectedUsers |> Map.add userConnection.UserName userConnection}
         }
         loop initState
@@ -135,6 +137,7 @@ module Chat =
                     | Notify notification ->
                         printfn "notifying"
                         state.NotificationFuns |> List.iter (fun f -> f notification)
+                        printfn "Notified %A with %A" state.UserName notification
                         return! loop state
                     | Reconnect notificationFun ->
                         return! loop {state with NotificationFuns = notificationFun::state.NotificationFuns}
