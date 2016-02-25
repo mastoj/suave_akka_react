@@ -87,7 +87,6 @@ module API =
     open Newtonsoft.Json
     open Microsoft.FSharp.Reflection
 
-    type ChatReceived = {Message: string; UserName: string; RoomName: string}
     type RoomCreated = {RoomName: string}
     type UserShort = {UserName: string}
     type RoomInfo = {RoomName: string; Users: UserShort list}
@@ -95,15 +94,16 @@ module API =
     type JoinedRoom = {RoomName: string}
     type RoomShort = {RoomName: string}
     type RoomList = {Rooms: RoomShort list}
+    type UserSaid = {RoomName: string; Message: string; UserName: string}
 
     [<JsonConverter(typeof<SimpleDUSerializer>)>]
     type Event =
-        | ChatReceived of ChatReceived
         | RoomCreated of RoomCreated
         | RoomInfo of RoomInfo
         | UserJoinedRoom of UserJoinedRoom
         | JoinedRoom of JoinedRoom
         | RoomList of RoomList
+        | UserSaid of UserSaid
 
     type Say = {Message: string; RoomName: string}
     type CreateRoom = {RoomName: string}
@@ -130,8 +130,8 @@ module API =
     let connect (chat:Chat.ChatServer) userName (webSocket : WebSocket) cx =
         printfn "trying to shake hands: %A" userName
         let notificationHandler = function
-            | UserSaid (UserName userName,Message message,RoomName roomName) ->
-                ChatReceived {Message = message; UserName = userName; RoomName = roomName}
+            | Notification.UserSaid (UserName userName,Message message,RoomName roomName) ->
+                UserSaid {Message = message; UserName = userName; RoomName = roomName}
                 |> sendTextOnSocket webSocket
             | Notification.RoomCreated (RoomName name) ->
                 RoomCreated {RoomName = name}

@@ -8,6 +8,7 @@ const JOINED_ROOM = "JOINED_ROOM";
 const USER_JOINED = "USER_JOINED";
 const SEND_MESSAGE = "SEND_MESSAGE";
 const MESSAGE_RECIEVED = "MESSAGE_RECIEVED";
+const USER_SAID = "USER_SAID"
 
 // Login status
 const FAILED = "FAILED";
@@ -93,6 +94,15 @@ const joinedRoom = (roomName) => {
     }
 }
 
+const userSaid = (userName, roomName, message) => {
+    return {
+        type: USER_SAID,
+        userName,
+        roomName,
+        message
+    }
+}
+
 function connectToServer(userName) {
     return dispatch => {
         console.log("connecting to server for user: " + userName)
@@ -135,6 +145,9 @@ function connectToServer(userName) {
                     break
                 case "UserJoinedRoom":
                     dispatch(userJoined(data["_data"].UserName, data["_data"].RoomName))
+                    break;
+                case "UserSaid":
+                    dispatch(userSaid(data["_data"].UserName, data["_data"].RoomName, data["_data"].Message))
             }
         };
 
@@ -207,26 +220,31 @@ const roomMessages = (state = {
     activeRoom: "",
     roomList: {}
 }, action) => {
+    let addMessage = ({roomName, userName, message}) => {
+        let roomMessages = state[roomName]
+        var newMessages = []
+        if(roomMessages) {
+            newMessages = [...roomMessages, {userName, message}]
+        }
+        else {
+            newMessages = [{userName: userName, message}]
+        }
+        let roomList = Object.assign({}, state.roomList, {})
+        roomList[roomName] = newMessages
+        let newState = Object.assign({}, state, {roomList: roomList})
+        return newState
+    }
     switch(action.type) {
         case USER_JOINED:
-            let who = "Server"
+            let userName = "Server"
             let message = action.userName + " joined the room"
-            let roomMessages = state[action.roomName]
-            var newMessages = []
-            if(roomMessages) {
-                newMessages = [...roomMessages, {userName: who, message}]
-            }
-            else {
-                newMessages = [{userName: who, message}]
-            }
-            let roomList = Object.assign({}, state.roomList, {})
-            roomList[action.roomName] = newMessages
-            let newState = Object.assign({}, state, {roomList: roomList})
-            return newState
+            return addMessage({roomName: action.roomName, userName, message})
         case JOINED_ROOM:
             return Object.assign({}, state, {
                 activeRoom: action.roomName
             })
+        case USER_SAID:
+            return addMessage(action)
         default:
             return state;
     }
