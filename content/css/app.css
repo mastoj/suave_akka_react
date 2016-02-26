@@ -1,3 +1,61 @@
+/* Coolors Exported Palette - coolors.co/011627-fdfffc-2ec4b6-e71d36-ff9f1c */
+:root {
+    --dark: #011627;
+    --light: #fdfffc;
+    --green: #2ec4b6;
+    --red: #e71d36;
+    --orange: #ff9f1c;
+}
+
 body {
-    background-color: red;
+    background-color: #fdfffc;
+    color: #011627;
+}
+
+#layout {
+    padding-left: 160px;
+}
+
+/*$color1: #011627; //rgba(1, 22, 39, 100)
+$color2: #fdfffc; //rgba(253, 255, 252, 100)
+$color3: #2ec4b6; //rgba(46, 196, 182, 100)
+$color4: #e71d36; //rgba(231, 29, 54, 100)
+$color5: #ff9f1c; //rgba(255, 159, 28, 100)
+*/
+#menu {
+    margin-left: -160px;
+    width: 160px;
+    background-color: #011627;
+    color: #fdfffc;
+    top: 0;
+    bottom: 0;
+    position: fixed;
+    overflow-x: hidden;
+    overflow-y: scroll;
+}
+
+#menu h3 {
+    color: #fdfffc;
+}
+
+#menu .pure-menu {
+    display: block;
+}
+
+#create-room {
+    z-index: 1000;
+    width: 160px;
+    background-color: #011627;
+    bottom: 0;
+    position: fixed;
+}
+
+/* pure overrides */
+.pure-menu-selected .pure-menu-link{
+    background-color: #2ec4b6;
+    color: #011627;
+}
+
+.pure-menu-item {
+    height: auto;
 }

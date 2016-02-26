@@ -323,21 +323,22 @@ const Header = connect(
     mapDispatchToProps
 )(HeaderView);
 
-const Room = ({roomName, onClick}) => (
-    <li onClick={onClick}>
-        {roomName}
+const Room = ({roomName, onClick, isActive}) => (
+    <li className={isActive ? "pure-menu-item pure-menu-selected" : "pure-menu-item"}>
+        <a href="#" onClick={onClick} className="pure-menu-link">{roomName}</a>
     </li>
 )
 
-const RoomList = ({rooms, onRoomClick}) => (
-    <div>
-        <h2>Existing rooms</h2>
-        <ul className="room-list">
+const RoomList = ({rooms, onRoomClick, activeRoom}) => (
+    <div className="pure-menu">
+        <h3 className="pure-menu-heading">Rooms</h3>
+        <ul className="pure-menu-list room-list">
             {rooms.map(room =>
                 <Room
                     key={room}
                     roomName={room}
                     onClick={() => onRoomClick(room)}
+                    isActive={room == activeRoom}
                 />
             )}
         </ul>
@@ -347,7 +348,8 @@ const RoomList = ({rooms, onRoomClick}) => (
 const mapStateToRoomListProps = (state) => {
     return {
         connection: state.connection.connection,
-        rooms: state.roomView.roomList
+        rooms: state.roomView.roomList,
+        activeRoom: state.roomMessages.activeRoom
     }
 }
 
@@ -398,7 +400,7 @@ class CreateRoom extends Component {
             onClick(this.refs.roomName.value)
         }
         return (
-            <div>
+            <div id="create-room">
                 <h3>Create room</h3>
                 <input type="text" ref="roomName" ></input>
                 <button name="createRoom" onClick={(e) => this.handleClick(e)}>Create room</button>
@@ -439,9 +441,11 @@ const MessagePanel = ({submitMessage}) => {
     }
 
     return (
-        <div className="message-panel">
-            <input type="text" onKeyUp={handleKeyUp}></input>
-        </div>
+        <form className="pure-form pure-form-stacked">
+            <div className="message-panel">
+                <input type="text" onKeyUp={handleKeyUp}></input>
+            </div>
+        </form>
     )
 }
 
@@ -483,9 +487,11 @@ const ChatWindowContainer = connect(
 )(ChatWindow)
 
 const LoggedInContainer = () =>
-    <div>
-        <RoomListContainer />
-        <CreateRoomContainer />
+    <div id="layout">
+        <div id="menu">
+            <RoomListContainer />
+            <CreateRoomContainer />
+        </div>
         <ChatWindowContainer />
     </div>
 
