@@ -415,15 +415,28 @@ const CreateRoomContainer = connect(
     mergeCreateRoomProps
 )(CreateRoom)
 
-const ChatLogEntry = ({message}) =>
-    <div className="message-entry">
-        <span className="user-name">{message.userName}</span>
-        <div className="message">{message.message}</div>
-    </div>
+const ChatLogEntry = ({message}) => {
+    let htmlEscape = (str) => {
+        return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+    }
 
+
+    let withNewLine = htmlEscape(message.message).replace(/\n/g, "<br />")
+    return (
+        <div className="chat-window-entry">
+            <div className="user-name">{message.userName}</div>
+            <div className="message" dangerouslySetInnerHTML={{__html:withNewLine}}></div>
+        </div>
+    )
+}
 
 const ChatLogContainer = ({messages}) =>
-    <div>
+    <div className="chat-window-log">
         {messages.map(message =>
             <ChatLogEntry
                 key={message.message}
@@ -441,11 +454,9 @@ const MessagePanel = ({submitMessage}) => {
     }
 
     return (
-        <form className="pure-form pure-form-stacked">
-            <div className="message-panel">
-                <input type="text" onKeyUp={handleKeyUp}></input>
-            </div>
-        </form>
+        <div className="chat-window-message pure-form">
+            <textarea placeholder="say something..." type="text" onKeyUp={handleKeyUp} className="pure-input-1"></textarea>
+        </div>
     )
 }
 
@@ -453,16 +464,15 @@ const MessagePanel = ({submitMessage}) => {
 const ChatWindow = ({activeRoom, roomMessages, connection, sendMessage}) => {
     let activeMessages = roomMessages.roomList[roomMessages.activeRoom] || []
     let submitMessage = (message) => sendMessage(message, activeRoom, connection)
-    let messagePanel = null;
+    let chatWindow = <div className="chat-window"></div>
     if(activeRoom) {
-        messagePanel = <MessagePanel submitMessage={submitMessage} />
+        chatWindow =
+            <div className="chat-window">
+                <ChatLogContainer messages={activeMessages}/>
+                <MessagePanel submitMessage={submitMessage} />
+            </div>
     }
-    return (
-        <div>
-            <ChatLogContainer messages={activeMessages}/>
-            {messagePanel}
-        </div>
-    )
+    return chatWindow
 }
 
 const mapStateToChatWindowContainerProps = (state) => {
