@@ -22,13 +22,16 @@ $color3: #2ec4b6; //rgba(46, 196, 182, 100)
 $color4: #e71d36; //rgba(231, 29, 54, 100)
 $color5: #ff9f1c; //rgba(255, 159, 28, 100)
 */
+#menu-wrapper {
+
+}
 #menu {
     margin-left: -160px;
     width: 160px;
     background-color: #011627;
     color: #fdfffc;
     top: 0;
-    bottom: 0;
+    bottom: 100px;
     position: fixed;
     overflow-x: hidden;
     overflow-y: scroll;
@@ -44,10 +47,16 @@ $color5: #ff9f1c; //rgba(255, 159, 28, 100)
 
 #create-room {
     z-index: 1000;
+    margin-left: -160px;
     width: 160px;
     background-color: #011627;
     bottom: 0;
+    height: 100px;
     position: fixed;
+}
+
+#create-room div {
+    padding: 5px;
 }
 
 .chat-window {
@@ -74,6 +83,20 @@ $color5: #ff9f1c; //rgba(255, 159, 28, 100)
 .chat-window-entry .user-name {
     font-weight: bold;
     margin-bottom: 5px;
+}
+
+#login-view {
+    width: 100%;
+    height: 100%;
+    background-color: #011627;
+}
+
+#login-view .pure-form {
+    width: 200px;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    margin-left: -100px;
 }
 
 /* pure overrides */

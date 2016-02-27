@@ -283,8 +283,11 @@ class HeaderView extends Component {
     render() {
         const {loginClick, userName, connectionStatus} = this.props;
 
-        this.handleClick = function(e) {
-            loginClick(this.refs.userName.value);
+        let handleKeyUp = (e) => {
+            if(e.keyCode == 13) {
+                loginClick(e.target.value.replace(/\n$/, ""))
+                e.target.value = ""
+            }
         }
 
         var loginBar;
@@ -294,11 +297,14 @@ class HeaderView extends Component {
             loginBar = <span>Please hold on</span>
         }
         else {
-            loginBar = <span>Please login now<input type="text" ref="userName"/><button onClick={(e) => this.handleClick(e)} >Please login</button></span>
+            loginBar =
+                <div className="pure-form">
+                    <input onKeyUp={handleKeyUp} placeholder="Enter user name..." className="pure-input-1" type="text" ref="userName"/>
+                </div>
         }
 
         return (
-            <div>
+            <div id="login-view">
                 {loginBar}
             </div>
         );
@@ -388,22 +394,26 @@ const mapDispatchToCreateRoomProps = (dispatch, ownProps) => {
 
 const mergeCreateRoomProps = (stateProps, dispatchProps, ownProps) => {
     var mergedProps = {
-        onClick: roomName => dispatchProps.onClick(roomName, stateProps.connection)
+        submitCreateRoom: roomName => dispatchProps.onClick(roomName, stateProps.connection)
     }
     return Object.assign({}, ownProps, stateProps, dispatchProps, mergedProps)
 }
 
 class CreateRoom extends Component {
     render() {
-        const {onClick} = this.props;
-        this.handleClick = (e) => {
-            onClick(this.refs.roomName.value)
+        const {submitCreateRoom} = this.props;
+        let handleKeyUp = (e) => {
+            if(e.keyCode == 13) {
+                submitCreateRoom(e.target.value.replace(/\n$/, ""))
+                e.target.value = ""
+            }
         }
+
         return (
-            <div id="create-room">
-                <h3>Create room</h3>
-                <input type="text" ref="roomName" ></input>
-                <button name="createRoom" onClick={(e) => this.handleClick(e)}>Create room</button>
+            <div id="create-room" className="pure-form">
+                <div>
+                    <input type="text" placeholder="Create room..." ref="roomName" className="pure-input-1" onKeyUp={handleKeyUp}></input>
+                </div>
             </div>
         )
     }
@@ -448,7 +458,7 @@ const ChatLogContainer = ({messages}) =>
 const MessagePanel = ({submitMessage}) => {
     let handleKeyUp = (e) => {
         if(e.keyCode == 13) {
-            submitMessage(e.target.value)
+            submitMessage(e.target.value.replace(/\n$/, ""))
             e.target.value = ""
         }
     }
@@ -498,8 +508,10 @@ const ChatWindowContainer = connect(
 
 const LoggedInContainer = () =>
     <div id="layout">
-        <div id="menu">
-            <RoomListContainer />
+        <div id="menu-wrapper">
+            <div id="menu">
+                <RoomListContainer />
+            </div>
             <CreateRoomContainer />
         </div>
         <ChatWindowContainer />
