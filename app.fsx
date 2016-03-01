@@ -108,6 +108,7 @@ module API =
     type Say = {Message: string; RoomName: string}
     type CreateRoom = {RoomName: string}
     type JoinRoom = {RoomName: string}
+
     [<JsonConverter(typeof<SimpleDUSerializer>)>]
     type Command =
         | Say of Say
@@ -140,16 +141,13 @@ module API =
                 UserJoinedRoom {UserName = userName; RoomName = roomName}
                 |> sendTextOnSocket webSocket
             | _ -> ()
-            // | JoinedRoom(RoomName roomName) ->
-            //     JsonTypes..JoinedRoom("JoinedRoom", roomName).JsonValue.ToString()
-            //     |> sendTextOnSocket webSocket
 
         let connection = Chat.createConnection chat userName notificationHandler
         let roomNames = connection.GetRoomList() |> List.map (fun (RoomName n) -> {RoomName = n}:RoomShort)
         RoomList {Rooms = roomNames}
         |> sendTextOnSocket webSocket
 
-        printfn "Created connection"
+        printfn "Created connection, yey"
         socket {
             while true do
                 let! inChoice = webSocket.read()
@@ -177,7 +175,8 @@ module API =
     let app (chat:Chat.ChatServer) =
         choose
             [
-                pathScan "/_socket/connect/%s" (fun (userName) -> handShake (connect chat (UserName userName)))
+                pathScan "/_socket/connect/%s" (fun (userName) ->
+                    handShake (connect chat (UserName userName)))
 //                POST >=> pathScan "/api/room/%s" (fun name -> chat.CreateRoom (Chat.RoomName name); OK ("Created " + name))
 //                POST >=> pathScan "/api/room/%s/join" connect
                 // GET >=> pathScan "/api/room/%s/users" getUsers

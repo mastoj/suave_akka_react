@@ -68,24 +68,19 @@ module Chat =
                 state.ConnectedUsers
                 |> Map.toList
                 |> List.map snd
-            printfn "Users in room: %A" userActors
             userActors |> List.iter (fun userActor -> userActor.Notify notification)
 
         let rec loop state = actor {
             let! message = mailbox.Receive()
             match message with
             | UserSays (message, userName) ->
-                printfn "notifying all the users %A" message
                 notifyUsers state (UserSaid (userName, message, (state.RoomName))) userName
-                printfn "Notified everyone"
                 return! loop state
             | Join(userConnection) ->
-                printfn "In room joining %A" message
                 match state.ConnectedUsers |> Map.containsKey userConnection.UserName with
                 | true -> ()
                 | false ->
                     notifyUsers state (UserJoinedRoom (state.RoomName, userConnection.UserName)) userConnection.UserName
-                    printfn "Hello"
                 return! loop {state with ConnectedUsers = state.ConnectedUsers |> Map.add userConnection.UserName userConnection}
         }
         loop initState
@@ -97,7 +92,6 @@ module Chat =
             UserSays = (fun message userName -> roomActor <! UserSays(message, userName))
             Join = (fun userConnection -> roomActor <! Join(userConnection))
         }
-
 
     type User = {
         UserName: UserName
@@ -113,36 +107,28 @@ module Chat =
             let rec loop state = actor {
                     let! message = mailbox.Receive()
                     let sender = mailbox.Sender()
-                    printfn "User received message %A" message
                     match message with
                     | UserMessage.JoinRoom roomName ->
-                        printfn "In user actor joining room"
                         let connection: UserConnection = {
                             UserName = state.UserName
                             Notify = notify
                         }
                         let room = roomMonitor.JoinRoom roomName connection
-                        printfn "User %A joind room %A" state.UserName roomName
                         let state' = {state with Rooms = state.Rooms |> Map.add roomName room}
-                        printfn "New user state %A" state'
                         state.NotificationFuns |> List.iter (fun f -> f (JoinedRoom roomName))
                         return! loop state'
                     | Say(msg,roomName) ->
-                        printfn "Looking for room in: %A" state.Rooms
-                        printfn "Trying to say %A: %A" roomName msg
                         let roomActor = state.Rooms |> Map.find roomName
-                        printfn "Found room: %A" roomActor
                         roomActor.UserSays msg state.UserName
                         return! loop state
                     | Notify notification ->
-                        printfn "notifying"
                         state.NotificationFuns |> List.iter (fun f -> f notification)
-                        printfn "Notified %A with %A" state.UserName notification
                         return! loop state
                     | Reconnect notificationFun ->
                         return! loop {state with NotificationFuns = notificationFun::state.NotificationFuns}
                 }
             loop {UserName = userName; Rooms = Map.empty; NotificationFuns = [notificationFun]}
+
         let user = spawn owner userNameStr userActor
         {
             UserName = userName
@@ -156,6 +142,7 @@ module Chat =
         Connect: UserName -> (Notification -> unit) -> User
     }
     type UserMonitorState = {UserMap: Map<UserName, User>}
+
     let createUserMonitor owner (roomMonitor:RoomMonitor) =
         let userMonitorActor (mailbox:Actor<UserMonitorMessage>) =
             let rec loop state = actor {
@@ -163,7 +150,6 @@ module Chat =
                 let sender = mailbox.Sender()
                 match message with
                 | UserMonitorMessage.Connect (userName, notificationFun) ->
-                    printfn "Connecting user in user monitor"
                     match state.UserMap |> Map.tryFind userName with
                     | Some user ->
                         user.Reconnect notificationFun
@@ -190,28 +176,21 @@ module Chat =
                 | RoomMonitorMessage.CreateRoom (roomName) ->
                     match state |> Map.containsKey roomName with
                     | false ->
-                        printfn "Room doesn't exist, creating: %A" roomName
                         let room = createRoom mailbox roomName
                         let allUsers = select "akka://chat-system/user/server/user-monitor/*" mailbox.Context
                         let state' = (state |> Map.add roomName room)
-                        printfn "Room added to map"
                         allUsers <! (Notify (RoomCreated(roomName)))
                         sender <! Some room
                         return! loop state'
                     | true ->
-                        printfn "Room exists"
                         sender <! None
                         return! loop state
                 | RoomMonitorMessage.JoinRoom(roomName, user) ->
-                    printfn "%A is joining room %A" user roomName
                     let room = state |> Map.find roomName
-                    printfn "did work? %A, %A" message room
                     room.Join user
-                    printfn "Wow?"
                     sender <! room
                     return! loop state
                 | RoomMonitorMessage.GetRoomList ->
-                    printfn "Existing rooms: %A" state
                     sender <! (state |> Map.toList |> List.map fst)
                     return! loop state
             }
@@ -237,16 +216,13 @@ module Chat =
                     | None ->
                         let roomMonitor = createRoomMonitor mailbox
                         let userMonitor = createUserMonitor mailbox roomMonitor
-    //                    let userMonitor = spawn mailbox "user-monitor" (userMonitorActor roomMonitor)
                         Some (roomMonitor,userMonitor)
                     | _ -> state
                 let! message = mailbox.Receive()
                 let sender = mailbox.Sender()
                 match state', message with
                 | Some (_, userMonitor), Connect(x,y) ->
-                    printfn "Connect in server: %A" userMonitor
                     let user = userMonitor.Connect x y
-                    printfn "Result in user %A" user
                     sender <! user
                 | Some (roomMonitor, _), GetRoomList ->
                     let roomList = roomMonitor.GetRoomList()
@@ -275,9 +251,7 @@ module Chat =
 
     let createConnection chatServer userName notificationHandler =
         let user = chatServer.Connect userName notificationHandler
-        let createRoom roomName =
-            let result = chatServer.CreateRoom roomName
-            printfn "Create room result %A" result
+        let createRoom roomName = chatServer.CreateRoom roomName
         let joinRoom roomName = user.JoinRoom roomName
         let say (message, roomName) = user.Say message roomName
         let getRoomList() = chatServer.GetRoomList()
@@ -294,9 +268,7 @@ let giveItASpin() =
     let chatServer = createChatServer()
     printfn "Server created"
     let userActor = chatServer.Connect (UserName "Tomas") (printfn "User Tomas received: %A")
-    printfn "User Tomas created %A" userActor
     let userActor2 = chatServer.Connect (UserName "Tomas2") (printfn "User Tomas2 received: %A")
-    printfn "User Tomas2 created"
     let roomActor = chatServer.CreateRoom (RoomName "Room1")
     printfn "Room created"
     userActor.JoinRoom (RoomName "Room1")
@@ -308,3 +280,5 @@ let giveItASpin() =
     userActor2.JoinRoom (RoomName "Room2")
     userActor2.Say (Message "Third message") (RoomName "Room2")
     System.Console.ReadLine() |> ignore
+
+giveItASpin()
