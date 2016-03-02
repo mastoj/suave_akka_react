@@ -177,10 +177,6 @@ module API =
             [
                 pathScan "/_socket/connect/%s" (fun (userName) ->
                     handShake (connect chat (UserName userName)))
-//                POST >=> pathScan "/api/room/%s" (fun name -> chat.CreateRoom (Chat.RoomName name); OK ("Created " + name))
-//                POST >=> pathScan "/api/room/%s/join" connect
-                // GET >=> pathScan "/api/room/%s/users" getUsers
-                // pathScan "/api/room/%s/join/%s" (fun (roomName,userName) -> handShake (joinRoom chat roomName userName))
             ]
 
 let serveIndex : WebPart =
